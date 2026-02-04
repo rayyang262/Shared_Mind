@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sticky Note Agents</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div id="noteStage">
+  <div class="board" id="boardA" data-agent="A">
+    <div class="boardTitle">ChatGPT</div>
+    <div class="stack" id="stackA"></div>
+  </div>
+
+  <div class="board" id="boardB" data-agent="B">
+    <div class="boardTitle">Gemini</div>
+    <div class="stack" id="stackB"></div>
+  </div>
+
+  <div class="board" id="boardC" data-agent="C">
+    <div class="boardTitle">Claude</div>
+    <div class="stack" id="stackC"></div>
+  </div>
+
+  <div class="board" id="boardD" data-agent="D">
+    <div class="boardTitle">Grok</div>
+    <div class="stack" id="stackD"></div>
+  </div>
+</div>
+
+<div id="questionBar">
+  <input id="question" placeholder="Ask a question…" />
+  <button id="run">Run</button>
+  <button id="clear">Clear</button>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
