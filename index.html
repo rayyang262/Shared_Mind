@@ -1,0 +1,40 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mask Canvas Inpaint (Class-style)</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="hud">
+    <div class="left">
+      <span class="pill">Double-click to place prompt</span>
+      <span class="pill">Hold <b>Space</b> + drag to paint mask</span>
+      <span class="pill">Drag images to move</span>
+    </div>
+    <div class="right">
+      <button id="btnMaskPaint" class="active">Mask Paint</button>
+      <button id="btnMaskErase">Mask Erase</button>
+      <button id="btnClearMask">Clear Mask</button>
+      <button id="btnGenerate" class="primary">Generate</button>
+      <button id="btnDelete" class="danger">Delete Selected</button>
+      <button id="btnReset" class="danger">Reset</button>
+    </div>
+    <div class="row2">
+      <label>Brush</label>
+      <input id="brush" type="range" min="6" max="120" value="36" />
+      <span id="brushVal">36</span>
+      <label style="margin-left:12px;">Feather</label>
+      <input id="feather" type="range" min="0" max="40" value="14" />
+      <span id="featherVal">14</span>
+      <span id="status" class="status">Idle</span>
+    </div>
+  </div>
+
+  <input id="inputBox" type="text" placeholder="Type prompt, press Enter…" autocomplete="off" />
+
+  <script src="./main.js"></script>
+</body>
+</html>

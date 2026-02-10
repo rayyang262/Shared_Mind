@@ -1,0 +1,66 @@
+/* style.css */
+:root{
+  --bg:#0b0b10;
+  --stroke:#2a2a42;
+  --text:#e9e9f3;
+  --muted:#a9aac2;
+  --primary:#7aa2ff;
+  --danger:#ff5d6c;
+}
+
+html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--text)}
+#hud{
+  position:fixed;left:10px;right:10px;top:10px;z-index:1000;
+  border:1px solid rgba(42,42,66,.7);
+  border-radius:14px;
+  background:rgba(10,10,18,.72);
+  backdrop-filter: blur(10px);
+  padding:10px;
+}
+#hud .left{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#hud .right{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+#hud .pill{
+  font-size:12px;color:rgba(233,233,243,.85);
+  border:1px solid rgba(42,42,66,.6);
+  background:rgba(0,0,0,.22);
+  padding:6px 10px;border-radius:999px;
+}
+#hud .row2{
+  margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  color:var(--muted);font-size:12px
+}
+#hud button{
+  border:1px solid rgba(42,42,66,.9);
+  background:rgba(20,20,34,.9);
+  color:var(--text);
+  padding:8px 10px;border-radius:10px;
+  cursor:pointer;user-select:none;
+}
+#hud button:hover{border-color:#3b3b60}
+#hud button.active{outline:2px solid var(--primary);outline-offset:0}
+#hud button.primary{border-color:rgba(122,162,255,.7);background:rgba(122,162,255,.14)}
+#hud button.danger{border-color:rgba(255,93,108,.7);background:rgba(255,93,108,.12)}
+#hud button:disabled{opacity:.55;cursor:not-allowed}
+#hud input[type="range"]{width:160px}
+
+.status{
+  margin-left:auto;
+  border:1px solid rgba(42,42,66,.6);
+  background:rgba(0,0,0,.22);
+  padding:6px 10px;border-radius:999px;
+}
+
+#inputBox{
+  position:fixed;
+  z-index:1100;
+  font-size:22px;
+  font-family:inherit;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(42,42,66,.9);
+  background:rgba(13,13,24,.92);
+  color:var(--text);
+  outline:none;
+  display:none;
+}
+#inputBox:focus{border-color:rgba(122,162,255,.9)}
