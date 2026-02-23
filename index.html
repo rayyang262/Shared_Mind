@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sticky Notes — Motivated Squad</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Input Panel (Fixed Top) -->
+    <div id="input-panel">
+        <h2>Create Motivational Note</h2>
+
+        <input
+            id="quote-input"
+            type="text"
+            placeholder="Enter your motivational quote..."
+            maxlength="1000"
+        />
+
+        <input
+            id="author-input"
+            type="text"
+            placeholder="Your name..."
+            maxlength="100"
+        />
+
+        <div id="char-count">0 / 1000 characters</div>
+
+        <div id="controls">
+            <button id="generate-btn">Generate & Create Note</button>
+            <button id="load-btn">Load My Notes</button>
+            <button id="clear-all-btn">Clear All</button>
+        </div>
+    </div>
+
+    <!-- Sticky Notes Container -->
+    <div id="sticky-notes-container"></div>
+
+    <!-- Status Message -->
+    <div id="status"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="loading-spinner"></div>
+        <p id="loading-text">Generating image...</p>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

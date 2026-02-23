@@ -1,0 +1,359 @@
+:root {
+    --ink: #0f1117;
+    --gold: #c9a227;
+    --teal: #2d7a6e;
+    --purple: #7c5ce4;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--ink);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* ===== INPUT PANEL ===== */
+#input-panel {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    background: rgba(15, 17, 23, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(201, 162, 39, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    z-index: 200;
+    margin-top: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+#input-panel h2 {
+    font-size: 16px;
+    margin-bottom: 15px;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#quote-input,
+#author-input {
+    width: 100%;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(201, 162, 39, 0.2);
+    border-radius: 8px;
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+#quote-input:focus,
+#author-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(201, 162, 39, 0.5);
+    box-shadow: 0 0 12px rgba(201, 162, 39, 0.2);
+}
+
+#char-count {
+    font-size: 12px;
+    color: rgba(201, 162, 39, 0.6);
+    margin-bottom: 15px;
+}
+
+#controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px;
+    background: rgba(201, 162, 39, 0.15);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+button:hover:not(:disabled) {
+    background: rgba(201, 162, 39, 0.3);
+    box-shadow: 0 0 12px rgba(201, 162, 39, 0.3);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#load-btn {
+    background: rgba(45, 122, 110, 0.15);
+    border-color: var(--teal);
+    color: var(--teal);
+}
+
+#load-btn:hover:not(:disabled) {
+    background: rgba(45, 122, 110, 0.3);
+    box-shadow: 0 0 12px rgba(45, 122, 110, 0.3);
+}
+
+#clear-all-btn {
+    background: rgba(200, 50, 50, 0.15);
+    border-color: #e85d5d;
+    color: #e85d5d;
+}
+
+#clear-all-btn:hover:not(:disabled) {
+    background: rgba(200, 50, 50, 0.3);
+    box-shadow: 0 0 12px rgba(200, 50, 50, 0.3);
+}
+
+/* ===== STICKY NOTES CONTAINER ===== */
+#sticky-notes-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    overflow: auto;
+    z-index: 1;
+}
+
+/* ===== STICKY NOTES ===== */
+.sticky-note {
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    cursor: move;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+}
+
+.sticky-note:hover:not(.dragging) {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+}
+
+.sticky-note.dragging {
+    opacity: 0.95;
+    box-shadow: 0 20px 50px rgba(201, 162, 39, 0.4);
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+/* ===== NOTE CONTENT OVERLAY ===== */
+.note-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.7));
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.note-quote {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    color: white;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    word-wrap: break-word;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+}
+
+.note-author {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Unsaved indicator pulse animation */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.sticky-note.unsaved::before {
+    content: "●";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: var(--gold);
+    font-size: 12px;
+    animation: pulse 1.5s infinite;
+    z-index: 2;
+}
+
+/* Loading placeholder while image loads */
+.sticky-note.loading {
+    background: linear-gradient(
+        135deg,
+        rgba(201, 162, 39, 0.1),
+        rgba(45, 122, 110, 0.1)
+    );
+    cursor: wait;
+}
+
+/* ===== STATUS MESSAGE ===== */
+#status {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 500;
+    max-width: 400px;
+    text-align: center;
+}
+
+#status.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#status.success {
+    background: rgba(45, 122, 110, 0.9);
+    color: #4cdbba;
+}
+
+#status.error {
+    background: rgba(200, 50, 50, 0.9);
+    color: #ff8888;
+}
+
+#status.info {
+    background: rgba(124, 92, 228, 0.9);
+    color: #b5a7ff;
+}
+
+#status.loading {
+    background: rgba(201, 162, 39, 0.9);
+    color: #fce181;
+}
+
+/* ===== LOADING OVERLAY ===== */
+#loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 17, 23, 0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#loading-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(201, 162, 39, 0.2);
+    border-top: 3px solid var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+#loading-text {
+    font-size: 14px;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+#sticky-notes-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+#sticky-notes-container::-webkit-scrollbar-track {
+    background: rgba(201, 162, 39, 0.05);
+}
+
+#sticky-notes-container::-webkit-scrollbar-thumb {
+    background: rgba(201, 162, 39, 0.2);
+    border-radius: 4px;
+}
+
+#sticky-notes-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(201, 162, 39, 0.4);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    #input-panel {
+        width: 95%;
+        max-width: none;
+        padding: 15px;
+    }
+
+    #input-panel h2 {
+        font-size: 14px;
+    }
+
+    .sticky-note {
+        width: 200px;
+        height: 200px;
+    }
+
+    #controls {
+        gap: 8px;
+    }
+
+    button {
+        font-size: 11px;
+        padding: 10px;
+    }
+}
