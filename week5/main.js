@@ -149,8 +149,25 @@ async function handleClearAllNotes() {
 
 async function generateImageFromQuote(quote, authorName) {
     // Create detailed prompt for nano-banana-pro
-    const prompt = `An inspiring visual representation of the quote: "${quote}" by ${authorName}. Beautiful, artistic, motivational, high quality, professional design.`;
+    const prompt = `
+Create a cinematic, photorealistic scene that communicates the meaning of this quote through people, actions, and objects (do NOT depict the quote as text in the image):
 
+Quote (for meaning only): "${quote}"
+Author: ${authorName}
+
+Scene direction:
+- Show 1–3 people actively demonstrating the quote through clear body language and a specific action.
+- Include 2–5 symbolic objects that reinforce the message (tools, paths, obstacles, light sources, bridges, mirrors, seeds, mountains, clocks, compasses, etc.).
+- Use a strong visual metaphor (progress, resilience, focus, transformation, connection, discipline, courage) that matches the quote’s intent.
+- Environment: a realistic setting that fits the metaphor (city street at dawn, workshop, mountain trail, stormy shoreline, classroom, stage, construction site, garden).
+- Composition: subject-centered, clear focal point, readable story in one frame, professional art direction.
+- Lighting: dramatic and motivational (golden hour / rim light / volumetric light), high contrast but natural.
+- Style: high-end poster / editorial photo, ultra-detailed, 8k, shallow depth of field, tasteful color grading.
+
+Constraints:
+- No text, no captions, no watermarks, no logos.
+- Avoid abstract swirls; make it concrete and story-driven.
+`;
     try {
         showLoading(true, `Generating image for "${quote.substring(0, 30)}..."`);
 
