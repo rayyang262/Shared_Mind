@@ -146,10 +146,12 @@ async function handleClearAllNotes() {
 }
 
 // ===== MODULE B: IMAGE GENERATION =====
-
 async function generateImageFromQuote(quote, authorName) {
-    // Create detailed prompt for nano-banana-pro
-    const prompt = `
+  if (!REPLICATE_AUTH_TOKEN || !REPLICATE_AUTH_TOKEN.trim()) {
+    throw new Error("Missing REPLICATE_AUTH_TOKEN (you are always falling back to the placeholder).");
+  }
+
+  const prompt = `
 Create a cinematic, photorealistic scene that communicates the meaning of this quote through people, actions, and objects (do NOT depict the quote as text in the image):
 
 Quote (for meaning only): "${quote}"
@@ -157,53 +159,52 @@ Author: ${authorName}
 
 Scene direction:
 - Show 1–3 people actively demonstrating the quote through clear body language and a specific action.
-- Include 2–5 symbolic objects that reinforce the message (tools, paths, obstacles, light sources, bridges, mirrors, seeds, mountains, clocks, compasses, etc.).
-- Use a strong visual metaphor (progress, resilience, focus, transformation, connection, discipline, courage) that matches the quote’s intent.
-- Environment: a realistic setting that fits the metaphor (city street at dawn, workshop, mountain trail, stormy shoreline, classroom, stage, construction site, garden).
-- Composition: subject-centered, clear focal point, readable story in one frame, professional art direction.
-- Lighting: dramatic and motivational (golden hour / rim light / volumetric light), high contrast but natural.
-- Style: high-end poster / editorial photo, ultra-detailed, 8k, shallow depth of field, tasteful color grading.
+- Include 2–5 symbolic objects that reinforce the message.
+- Use a strong visual metaphor matching the quote’s intent.
+- Environment: realistic setting that fits the metaphor.
+- Composition: subject-centered, clear focal point, readable story in one frame.
+- Lighting: dramatic and motivational (golden hour / rim light / volumetric light).
+- Style: high-end poster / editorial photo, ultra-detailed, 8k, shallow depth of field.
 
 Constraints:
 - No text, no captions, no watermarks, no logos.
-- Avoid abstract swirls; make it concrete and story-driven.
 `;
-    try {
-        showLoading(true, `Generating image for "${quote.substring(0, 30)}..."`);
 
-        const response = await fetch(REPLICATE_PROXY, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${REPLICATE_AUTH_TOKEN}`
-            },
-            body: JSON.stringify({
-                model: 'google/nano-banana-pro',
-                input: {
-                    prompt: prompt
-                }
-            })
-        });
+  showLoading(true, `Generating image for "${quote.substring(0, 30)}..."`);
 
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
+  const response = await fetch(REPLICATE_PROXY, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${REPLICATE_AUTH_TOKEN}`
+    },
+    body: JSON.stringify({
+      model: "google/nano-banana-pro",
+      input: { prompt }
+    })
+  });
 
-        const data = await response.json();
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`API error: ${response.status} ${response.statusText} ${errText}`.trim());
+  }
 
-        if (data.status === 'succeeded' && data.output) {
-            return data.output;
-        } else if (data.error) {
-            throw new Error(data.error);
-        } else {
-            throw new Error("Invalid response from image generation API");
-        }
-    } catch (error) {
-        console.warn("Image generation failed, using placeholder:", error);
-        return generatePlaceholderImage(quote, authorName);
-    } finally {
-        showLoading(false);
-    }
+  const data = await response.json();
+
+  if (data?.error) throw new Error(data.error);
+  if (data?.status !== "succeeded") throw new Error(`Generation not succeeded: ${data?.status || "unknown"}`);
+
+  const out = data.output;
+
+  // Replicate commonly returns an array of image URLs
+  const imageUrl = Array.isArray(out) ? out[0] : out;
+
+  if (typeof imageUrl !== "string" || !imageUrl.startsWith("http")) {
+    throw new Error(`Invalid output format: ${JSON.stringify(out).slice(0, 200)}`);
+  }
+
+  showLoading(false);
+  return imageUrl;
 }
 
 function generatePlaceholderImage(quote, authorName) {
