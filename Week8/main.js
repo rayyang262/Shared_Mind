@@ -14,7 +14,7 @@ import {
 
 import {
   initVideoScreen, setBasePrompt, getBasePrompt,
-  generateVideo, onPositionChange,
+  generateVideo, onPositionChange, placeImageInWorld,
 } from './ImageGen.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -46,6 +46,7 @@ async function init() {
     onUserLeft:     handleUserLeft,
     onUserMoved:    handleUserMoved,
     onContentAdded: handleContentAdded,
+    onImageAdded:   handleImageAdded,
   });
 
   const { color, name } = await initFirebase();
@@ -220,6 +221,11 @@ function handleUserMoved(userId, data) {
 function handleContentAdded(contentId, data) {
   addContentNode(contentId, data);
   flashContentNotice(data);
+}
+
+function handleImageAdded(imageId, data) {
+  if (!data?.url || !data?.embedPos) return;
+  placeImageInWorld(data.url, data.embedPos);
 }
 
 function appendUserRow(userId, data) {

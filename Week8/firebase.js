@@ -41,12 +41,14 @@ let _onUserJoined   = () => {};
 let _onUserLeft     = () => {};
 let _onUserMoved    = () => {};
 let _onContentAdded = () => {};
+let _onImageAdded   = () => {};
 
-export function registerCallbacks({ onUserJoined, onUserLeft, onUserMoved, onContentAdded }) {
+export function registerCallbacks({ onUserJoined, onUserLeft, onUserMoved, onContentAdded, onImageAdded = () => {} }) {
   _onUserJoined   = onUserJoined;
   _onUserLeft     = onUserLeft;
   _onUserMoved    = onUserMoved;
   _onContentAdded = onContentAdded;
+  _onImageAdded   = onImageAdded;
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
@@ -122,6 +124,12 @@ export async function initFirebase() {
         _onContentAdded(snap.key, snap.val());
       });
 
+      // Subscribe to images — fires for all existing + new ones
+      const imagesRef = ref(db, 'elevatorWorld/images');
+      onChildAdded(imagesRef, snap => {
+        _onImageAdded(snap.key, snap.val());
+      });
+
       resolve({ userId: localUserId, color: localColor, name: localName });
     });
   });
@@ -155,7 +163,7 @@ export function queueCellBroadcast(cellKeys) {
 
 // ── Post a thought at current position ────────────────────────────────────────
 export async function postContent(text, position) {
-  if (!db || !userRef) return;  // local-only mode
+  if (!db || !userRef) return;
   const contentRef = ref(db, 'elevatorWorld/content');
   await push(contentRef, {
     text,
@@ -165,4 +173,20 @@ export async function postContent(text, position) {
     color:      localColor,
     timestamp:  serverTimestamp(),
   });
+}
+
+// ── Save a generated image so all users can see it ────────────────────────────
+export async function postImage(url, embedPos, prompt) {
+  if (!db || !userRef) return null;
+  const imagesRef = ref(db, 'elevatorWorld/images');
+  const snap = await push(imagesRef, {
+    url,
+    embedPos,
+    prompt,
+    authorId:   localUserId,
+    authorName: localName,
+    color:      localColor,
+    timestamp:  serverTimestamp(),
+  });
+  return snap.key;
 }

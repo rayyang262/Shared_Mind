@@ -3,6 +3,11 @@
 // they stay fixed in the building as the elevator moves away.
 import * as THREE from 'https://esm.sh/three@0.165.0';
 import { getScene, embedToWorld } from './world3D.js';
+import { postImage } from './firebase.js';
+
+// Track placed image URLs so we never render the same image twice
+// (local placement + Firebase onChildAdded both call placeImageInWorld)
+const placedUrls = new Set();
 
 // ── Replicate proxy ────────────────────────────────────────────────────────────
 const PROXY_URL = 'https://itp-ima-replicate-proxy.web.app/api/create_n_get';
@@ -91,6 +96,8 @@ export async function generateVideo(base, pos) {
 
     setStatus('placing…', 'generating');
     await placeImageInWorld(imgUrl, pendingPos);
+    // Save to Firebase so other users see it (fire-and-forget)
+    postImage(imgUrl, pendingPos, base).catch(e => console.warn('[firebase] postImage failed:', e));
     setStatus('ready', 'done');
     setTimeout(() => setStatus('ready', ''), 2000);
 
@@ -103,8 +110,10 @@ export async function generateVideo(base, pos) {
   }
 }
 
-// ── Place generated image as a fixed plane in world space ─────────────────────
-function placeImageInWorld(url, embedPos) {
+// ── Place image as a fixed plane in world space (exported for remote images) ──
+export function placeImageInWorld(url, embedPos) {
+  if (placedUrls.has(url)) return Promise.resolve(); // already rendered
+  placedUrls.add(url);
   return new Promise((resolve, reject) => {
     loader.load(
       url,
