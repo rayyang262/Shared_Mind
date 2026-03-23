@@ -56,6 +56,11 @@ async function init() {
   await broadcastPosition({ ...myPos });
   updateHUD();
 
+  // HUD toggle
+  document.getElementById('hud-toggle').addEventListener('click', () => {
+    document.getElementById('hud').classList.toggle('open');
+  });
+
   setupArrows();
   setupKeyboard();
   setupPostUI();
@@ -189,13 +194,14 @@ function setupPostUI() {
 // ── My identity ───────────────────────────────────────────────────────────────
 function showMyself(name, color) {
   const panel = document.getElementById('users-panel');
+  panel.querySelector('.no-users')?.remove();
   const hex   = '#' + color.toString(16).padStart(6, '0');
   const row   = document.createElement('div');
   row.className = 'user-entry';
   row.style.marginBottom = '4px';
-  row.innerHTML = `<span class="user-dot" style="background:${hex}"></span>
-    <span style="color:rgba(255,200,80,0.7)">${name}</span>
-    <span style="color:rgba(255,255,255,0.2);font-size:9px">(you)</span>`;
+  row.innerHTML = `<span class="user-dot" style="background:${hex};box-shadow:0 0 6px ${hex}88"></span>
+    <span style="color:${hex};opacity:0.9;font-size:10px">${name}</span>
+    <span style="color:rgba(255,255,255,0.18);font-size:8px"> you</span>`;
   panel.prepend(row);
 }
 
@@ -218,27 +224,23 @@ function handleContentAdded(contentId, data) {
 
 function appendUserRow(userId, data) {
   const panel = document.getElementById('users-panel');
+  // Remove "no others" placeholder if present
+  panel.querySelector('.no-users')?.remove();
   const hex   = '#' + (data.color ?? 0xffffff).toString(16).padStart(6, '0');
   const row   = document.createElement('div');
   row.id        = `user-row-${userId}`;
   row.className = 'user-entry';
-  row.innerHTML = `<span class="user-dot" style="background:${hex}"></span>
-    <span style="color:rgba(255,255,255,0.45)">${data.displayName ?? userId.slice(0,6)}</span>`;
+  row.innerHTML = `<span class="user-dot" style="background:${hex};box-shadow:0 0 6px ${hex}88"></span>
+    <span style="color:${hex};opacity:0.85;font-size:10px">${data.displayName ?? userId.slice(0,6)}</span>`;
   panel.appendChild(row);
 }
 
 function flashContentNotice(data) {
   const notice = document.createElement('div');
-  notice.style.cssText = `
-    position:fixed; bottom:80px; right:22px; z-index:20;
-    background:rgba(0,0,0,0.8); border:1px solid rgba(85,255,204,0.35);
-    color:rgba(85,255,204,0.85); padding:8px 12px; font-size:10px;
-    font-family:'Courier New',monospace; max-width:200px; line-height:1.5;
-    opacity:1; transition:opacity 1s;
-  `;
+  notice.className = 'content-flash';
   notice.textContent = `${data.authorName ?? '?'}: "${(data.text ?? '').slice(0, 80)}"`;
   document.body.appendChild(notice);
-  setTimeout(() => { notice.style.opacity = '0'; },  3500);
+  setTimeout(() => { notice.style.opacity = '0'; }, 3500);
   setTimeout(() => { notice.remove(); }, 4700);
 }
 

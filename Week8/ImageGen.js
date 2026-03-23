@@ -42,35 +42,10 @@ function buildPrompt(base, pos) {
   return `${base}. Visual style: ${style.join(', ')}. Cinematic, 4K, no text.`;
 }
 
-// ── Init: just DOM overlays — no elevator-attached plane ──────────────────────
+// ── Init: bind to existing DOM elements ────────────────────────────────────────
 export function initVideoScreen() {
-  if (!document.getElementById('spin-style')) {
-    const s = document.createElement('style');
-    s.id = 'spin-style';
-    s.textContent = '@keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }';
-    document.head.appendChild(s);
-  }
-
-  loaderEl = document.createElement('div');
-  loaderEl.style.cssText = `
-    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-    z-index:15; pointer-events:none; width:36px; height:36px;
-    border:2px solid rgba(255,200,80,0.15);
-    border-top:2px solid rgba(255,200,80,0.75);
-    border-radius:50%; animation:spin 1s linear infinite;
-    opacity:0; transition:opacity 0.3s;
-  `;
-  document.body.appendChild(loaderEl);
-
-  statusEl = document.createElement('div');
-  statusEl.style.cssText = `
-    position:fixed; bottom:130px; left:50%; transform:translateX(-50%);
-    z-index:15; pointer-events:none; text-align:center;
-    color:rgba(255,200,80,0.75); font-family:'Courier New',monospace;
-    font-size:11px; letter-spacing:3px;
-    opacity:0; transition:opacity 0.3s;
-  `;
-  document.body.appendChild(statusEl);
+  statusEl = document.getElementById('gen-status');
+  loaderEl = null; // spinner handled via CSS class on statusEl
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -94,7 +69,7 @@ export async function generateVideo(base, pos) {
   const fullPrompt = buildPrompt(base, pos);
   console.log('[imagen] prompt:', fullPrompt);
 
-  setStatus('generating…');
+  setStatus('generating…', 'generating');
   setLoader(true);
 
   try {
@@ -114,13 +89,14 @@ export async function generateVideo(base, pos) {
     const imgUrl = extractUrl(json.output);
     if (!imgUrl) throw new Error('no image URL in response');
 
-    // Place image in world at the position it was generated
+    setStatus('placing…', 'generating');
     await placeImageInWorld(imgUrl, pendingPos);
-    setStatus('');
+    setStatus('ready', 'done');
+    setTimeout(() => setStatus('ready', ''), 2000);
 
   } catch (e) {
     console.error('[imagen] error:', e);
-    setStatus('failed — ' + e.message);
+    setStatus('error — ' + e.message, '');
   } finally {
     setLoader(false);
     isGenerating = false;
@@ -196,5 +172,13 @@ function fadeMaterial(mat, target, ms) {
   requestAnimationFrame(tick);
 }
 
-function setLoader(show) { loaderEl.style.opacity = show ? '1' : '0'; }
-function setStatus(msg)  { statusEl.textContent = msg; statusEl.style.opacity = msg ? '1' : '0'; }
+function setLoader(show) {
+  if (!statusEl) return;
+  if (show) statusEl.classList.add('generating');
+  else      statusEl.classList.remove('generating');
+}
+function setStatus(msg, cls = '') {
+  if (!statusEl) return;
+  statusEl.textContent = msg || 'ready';
+  statusEl.className   = cls;
+}
