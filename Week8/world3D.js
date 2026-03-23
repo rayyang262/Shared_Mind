@@ -407,21 +407,8 @@ export function updateRemoteUser(userId, position, colorHex, displayName) {
 // ── Content nodes (thought orbs) ──────────────────────────────────────────────
 export function addContentNode(contentId, data) {
   if (contentNodes[contentId]) return;
-
-  const wp  = embedToWorld(data.position.x, data.position.y, data.position.z);
-  const geo = new THREE.SphereGeometry(1.4, 10, 7);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x55ffcc, emissive: 0x113322, emissiveIntensity: 0.6,
-    roughness: 0.4, transparent: true, opacity: 0.85,
-  });
-  const orb = new THREE.Mesh(geo, mat);
-  orb.position.copy(wp);
-
-  const glow = new THREE.PointLight(0x55ffcc, 0.7, 22);
-  orb.add(glow);
-  scene.add(orb);
-
-  contentNodes[contentId] = { orb, data };
+  // No 3D marker — content is represented by images placed in world space
+  contentNodes[contentId] = { orb: null, data };
 }
 
 // ── Neighbourhood preview (for hover hints) ───────────────────────────────────
@@ -517,11 +504,6 @@ export function animate() {
     }
   });
 
-  // Content orb animation
-  Object.values(contentNodes).forEach(({ orb }, i) => {
-    orb.position.y += Math.sin(t * 0.9 + i * 2.1) * 0.004;
-    orb.rotation.y += 0.008;
-  });
 
   renderer.render(scene, camera);
 }
