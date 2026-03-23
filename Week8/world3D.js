@@ -119,130 +119,95 @@ function addStarfield() {
   })));
 }
 
-// ── Building skeleton (wireframe grid suggesting a vast structure) ─────────────
+// ── Building skeleton — all lines merged into 3 draw calls ────────────────────
 function buildStructure() {
-  const floorMat = new THREE.LineBasicMaterial({ color: 0x1e3d58, transparent: true, opacity: 0.55 });
-  const subMat   = new THREE.LineBasicMaterial({ color: 0x0e2233, transparent: true, opacity: 0.3 });
-  const colMat   = new THREE.LineBasicMaterial({ color: 0x234a6a, transparent: true, opacity: 0.65 });
-  const braceMat = new THREE.LineBasicMaterial({ color: 0x112233, transparent: true, opacity: 0.35 });
+  // Each array holds pairs of points (LineSegments format)
+  const floorSegs = [], subSegs = [], colSegs = [];
 
-  // Horizontal floor planes — perimeter + interior grid
   for (let y = -HALF; y <= HALF; y += CELL_UNITS) {
-    const pts = [
-      new THREE.Vector3(-HALF, y, -HALF), new THREE.Vector3( HALF, y, -HALF),
-      new THREE.Vector3( HALF, y,  HALF), new THREE.Vector3(-HALF, y,  HALF),
-      new THREE.Vector3(-HALF, y, -HALF),
-    ];
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), floorMat));
-    // Interior grid X
+    // Floor perimeter
+    floorSegs.push(-HALF,y,-HALF,  HALF,y,-HALF,   HALF,y,-HALF,  HALF,y,HALF,
+                    HALF,y, HALF, -HALF,y, HALF,  -HALF,y, HALF, -HALF,y,-HALF);
+    // Interior X lines
     for (let x = -HALF + CELL_UNITS; x < HALF; x += CELL_UNITS) {
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x, y, -HALF), new THREE.Vector3(x, y, HALF),
-      ]), subMat));
+      subSegs.push(x,y,-HALF, x,y,HALF);
     }
-    // Interior grid Z
+    // Interior Z lines
     for (let z = -HALF + CELL_UNITS; z < HALF; z += CELL_UNITS) {
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-HALF, y, z), new THREE.Vector3(HALF, y, z),
-      ]), subMat));
+      subSegs.push(-HALF,y,z, HALF,y,z);
     }
   }
 
-  // Vertical columns — every 2 cells
+  // Vertical columns every 2 cells
   for (let x = -HALF; x <= HALF; x += CELL_UNITS * 2) {
     for (let z = -HALF; z <= HALF; z += CELL_UNITS * 2) {
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x, -HALF, z), new THREE.Vector3(x, HALF, z),
-      ]), colMat));
+      colSegs.push(x,-HALF,z, x,HALF,z);
     }
   }
 
-  // X cross-braces on front/back walls
+  // Cross-braces on outer walls
   for (const wall of [-HALF, HALF]) {
     for (let y = -HALF; y < HALF; y += CELL_UNITS * 2) {
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(wall, y, -HALF), new THREE.Vector3(wall, y + CELL_UNITS * 2, HALF),
-      ]), braceMat));
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(wall, y, HALF),  new THREE.Vector3(wall, y + CELL_UNITS * 2, -HALF),
-      ]), braceMat));
+      colSegs.push(wall,y,-HALF, wall,y+CELL_UNITS*2,HALF,
+                   wall,y, HALF, wall,y+CELL_UNITS*2,-HALF);
     }
   }
+
+  const addSegs = (verts, color, opacity) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    scene.add(new THREE.LineSegments(geo,
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
+  };
+
+  addSegs(floorSegs, 0x1e3d58, 0.55);  // 1 draw call
+  addSegs(subSegs,   0x0e2233, 0.28);  // 1 draw call
+  addSegs(colSegs,   0x234a6a, 0.60);  // 1 draw call — total: 3 draw calls
 }
 
-// ── Industrial pipe infrastructure ─────────────────────────────────────────────
+// ── Industrial pipe infrastructure (geometry only — no per-pipe lights) ─────────
 function buildPipes() {
-  const pipeMat  = new THREE.MeshBasicMaterial({ color: 0x182018 });
-  const jointMat = new THREE.MeshStandardMaterial({
-    color: 0x2a1600, roughness: 0.4, metalness: 0.7,
-    emissive: 0xff7700, emissiveIntensity: 0.5,
-  });
+  // Use MeshBasicMaterial so pipes cost nothing extra in lighting pass
+  const pipeMat  = new THREE.MeshBasicMaterial({ color: 0x1a201a });
+  const jointMat = new THREE.MeshBasicMaterial({ color: 0xcc5500 });
   const L = WORLD_UNITS * 1.05;
 
   function hPipeX(y, z, r = 1.2) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 8), pipeMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 7), pipeMat);
     m.rotation.z = Math.PI / 2;
     m.position.set(0, y, z);
     scene.add(m);
+    // Glowing joints (basic material — no lighting cost)
     for (let x = -80; x <= 80; x += 80) {
-      const j = new THREE.Mesh(new THREE.SphereGeometry(r * 1.7, 8, 5), jointMat);
+      const j = new THREE.Mesh(new THREE.SphereGeometry(r * 1.65, 7, 5), jointMat);
       j.position.set(x, y, z);
       scene.add(j);
-      const l = new THREE.PointLight(0xff8833, 0.45, 40);
-      l.position.set(x, y, z);
-      scene.add(l);
     }
   }
-
   function hPipeZ(y, x, r = 1.0) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 8), pipeMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 7), pipeMat);
     m.rotation.x = Math.PI / 2;
     m.position.set(x, y, 0);
     scene.add(m);
   }
-
   function vPipe(x, z, r = 1.2) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 8), pipeMat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 7), pipeMat);
     m.position.set(x, 0, z);
     scene.add(m);
   }
 
-  // Horizontal X-runs at various heights / depths
-  hPipeX(-70, -80, 1.4);
-  hPipeX(-70,  80, 1.4);
-  hPipeX(  0, -90, 1.0);
-  hPipeX(  0,  90, 1.0);
-  hPipeX( 70, -80, 1.4);
-  hPipeX( 70,  80, 1.4);
-  hPipeX(-35,  50, 0.7);
-  hPipeX( 35, -50, 0.7);
+  hPipeX(-70, -80, 1.4);  hPipeX(-70,  80, 1.4);
+  hPipeX(  0, -90, 1.0);  hPipeX(  0,  90, 1.0);
+  hPipeX( 70, -80, 1.4);  hPipeX( 70,  80, 1.4);
+  hPipeX(-35,  50, 0.7);  hPipeX( 35, -50, 0.7);
 
-  // Horizontal Z-runs
-  hPipeZ(-60, -80, 1.1);
-  hPipeZ(-60,  80, 1.1);
-  hPipeZ( 60, -80, 1.1);
-  hPipeZ( 60,  80, 1.1);
+  hPipeZ(-60, -80, 1.1);  hPipeZ(-60,  80, 1.1);
+  hPipeZ( 60, -80, 1.1);  hPipeZ( 60,  80, 1.1);
 
-  // Vertical risers
-  vPipe(-90, -90, 1.6);
-  vPipe( 90, -90, 1.6);
-  vPipe(-90,  90, 1.6);
-  vPipe( 90,  90, 1.6);
-  vPipe(-90,   0, 1.0);
-  vPipe( 90,   0, 1.0);
-  vPipe(  0, -90, 1.0);
-  vPipe(  0,  90, 1.0);
-
-  // Dim bluish building area lights (like fluorescent ceiling fixtures)
-  [
-    [-60, -90, -60], [ 60, -90, -60], [-60, -90,  60], [ 60, -90,  60],
-    [-60,   0, -60], [ 60,   0, -60], [-60,   0,  60], [ 60,   0,  60],
-    [-60,  90, -60], [ 60,  90, -60], [-60,  90,  60], [ 60,  90,  60],
-  ].forEach(([x, y, z]) => {
-    const l = new THREE.PointLight(0x2244aa, 0.4, 75);
-    l.position.set(x, y, z);
-    scene.add(l);
-  });
+  vPipe(-90, -90, 1.6);  vPipe( 90, -90, 1.6);
+  vPipe(-90,  90, 1.6);  vPipe( 90,  90, 1.6);
+  vPipe(-90,   0, 1.0);  vPipe( 90,   0, 1.0);
+  vPipe(  0, -90, 1.0);  vPipe(  0,  90, 1.0);
 }
 
 // ── Fog-of-war: instanced mesh of dark cubes ───────────────────────────────────
