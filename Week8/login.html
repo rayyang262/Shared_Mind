@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>The Elevator — Sign In</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --col-x:     rgba(255, 165, 45, 1);
+      --col-y:     rgba(65, 220, 150, 1);
+      --col-z:     rgba(175, 95, 255, 1);
+      --col-label: rgba(80, 148, 212, 0.65);
+      --panel-bg:  rgba(4, 10, 24, 0.82);
+      --font: 'Space Mono', 'Courier New', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000810;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* atmosphere */
+    #vignette {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,4,14,0.9) 100%);
+    }
+    #scanlines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.045) 3px, rgba(0,0,0,0.045) 4px
+      );
+    }
+
+    /* grid lines behind */
+    #grid-bg {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(20,55,100,0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20,55,100,0.12) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* layout */
+    .page {
+      position: relative; z-index: 1;
+      display: flex; gap: 0;
+      width: min(900px, 95vw);
+      min-height: 480px;
+    }
+
+    /* left — description */
+    .left {
+      flex: 1; padding: 54px 48px;
+      display: flex; flex-direction: column; justify-content: center;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-right: none;
+      background: rgba(3, 8, 20, 0.7);
+      backdrop-filter: blur(16px);
+    }
+    .left-label {
+      font-size: 8px; letter-spacing: 4px;
+      color: var(--col-label); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .left-label::before {
+      content: ''; width: 20px; height: 1px;
+      background: var(--col-x); opacity: 0.6;
+    }
+    h1 {
+      font-size: 28px; font-weight: 700; letter-spacing: 4px;
+      line-height: 1.2; margin-bottom: 24px;
+      color: rgba(220,232,255,0.95);
+    }
+    h1 em { font-style: normal; color: var(--col-x); }
+
+    .desc {
+      font-size: 11px; line-height: 2.1;
+      color: rgba(140,165,200,0.7);
+      margin-bottom: 36px;
+    }
+
+    /* axis pills */
+    .axes { display: flex; flex-direction: column; gap: 8px; }
+    .axis-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 8px; letter-spacing: 2px;
+    }
+    .axis-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .axis-name { width: 72px; }
+    .axis-range { color: rgba(100,130,170,0.5); }
+
+    /* right — auth */
+    .right {
+      width: 320px; flex-shrink: 0; padding: 48px 36px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; justify-content: center; gap: 0;
+    }
+    .auth-title {
+      font-size: 8px; letter-spacing: 3px; color: var(--col-label);
+      margin-bottom: 28px; display: flex; align-items: center; gap: 8px;
+    }
+    .auth-title::before {
+      content: ''; width: 4px; height: 4px; background: var(--col-x);
+    }
+
+    /* Google button */
+    #google-btn {
+      width: 100%; padding: 13px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(220,232,255,0.85); font-family: var(--font);
+      font-size: 10px; letter-spacing: 2px;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 10px;
+      transition: background 0.15s, border-color 0.15s;
+      margin-bottom: 20px;
+    }
+    #google-btn:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.2);
+    }
+    #google-btn svg { flex-shrink: 0; }
+
+    /* divider */
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: rgba(255,255,255,0.07);
+    }
+    .divider span { font-size: 8px; color: rgba(80,148,212,0.35); letter-spacing: 2px; }
+
+    /* email form */
+    .field { margin-bottom: 10px; }
+    .field input {
+      width: 100%; padding: 11px 13px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(220,232,255,0.9); font-family: var(--font); font-size: 11px;
+      outline: none; caret-color: var(--col-x);
+      transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: rgba(255,165,45,0.4); background: rgba(255,165,45,0.02); }
+    .field input::placeholder { color: rgba(80,148,212,0.3); }
+
+    #submit-btn {
+      width: 100%; padding: 13px;
+      background: rgba(255,165,45,0.1);
+      border: 1px solid rgba(255,165,45,0.35);
+      color: rgba(255,215,80,0.9); font-family: var(--font);
+      font-size: 10px; letter-spacing: 3px;
+      cursor: pointer; margin-top: 4px;
+      transition: background 0.15s, color 0.15s;
+    }
+    #submit-btn:hover { background: rgba(255,165,45,0.22); color: rgb(255,225,100); }
+    #submit-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* toggle sign-in / create */
+    .auth-toggle {
+      margin-top: 14px; text-align: center;
+      font-size: 9px; color: rgba(80,148,212,0.4);
+    }
+    .auth-toggle a {
+      color: rgba(255,165,45,0.65); cursor: pointer;
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .auth-toggle a:hover { color: rgba(255,165,45,0.9); }
+
+    /* error/status */
+    #auth-msg {
+      margin-top: 12px; font-size: 9px; letter-spacing: 1px;
+      text-align: center; min-height: 14px;
+      color: rgba(255,100,100,0.75); transition: color 0.3s;
+    }
+    #auth-msg.ok { color: rgba(65,220,150,0.8); }
+
+    /* loading overlay after login */
+    #redirect-overlay {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: #000810;
+      flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    }
+    #redirect-overlay.show { display: flex; }
+    #redirect-title { color: var(--col-x); font-size: 11px; letter-spacing: 8px; }
+    #redirect-bar { width: 140px; height: 1px; background: rgba(255,255,255,0.07); overflow: hidden; }
+    #redirect-bar::after {
+      content: ''; display: block; height: 1px;
+      background: var(--col-x); opacity: 0.7;
+      animation: bar 1.4s ease-in-out infinite;
+    }
+    @keyframes bar {
+      0% { transform: translateX(-100%); }
+      70% { transform: translateX(0); opacity: 1; }
+      100% { transform: translateX(100%); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="grid-bg"></div>
+  <div id="vignette"></div>
+  <div id="scanlines"></div>
+
+  <div class="page">
+
+    <!-- Left: project description -->
+    <div class="left">
+      <div class="left-label">ITP · SHARED MINDS · WEEK 8</div>
+      <h1>THE<br><em>ELEVATOR</em></h1>
+      <p class="desc">
+        A building you navigate by feeling.<br><br>
+        Move through three axes of relational meaning —
+        how intimate, how resonant, how energetic your presence is.
+        Type a thought and watch an image generate around it,
+        morphing with every step you take deeper into the space.<br><br>
+        Multiple people exist here simultaneously, each leaving
+        traces of where they've been.
+      </p>
+      <div class="axes">
+        <div class="axis-row">
+          <div class="axis-dot" style="background:rgba(255,165,45,0.9)"></div>
+          <div class="axis-name" style="color:rgba(255,165,45,0.8)">INTIMACY</div>
+          <div class="axis-range">public → private</div>
+        </div>
+        <div class="axis-row">
+          <div class="axis-dot" style="background:rgba(65,220,150,0.9)"></div>
+          <div class="axis-name" style="color:rgba(65,220,150,0.8)">RESONANCE</div>
+          <div class="axis-range">friction → harmony</div>
+        </div>
+        <div class="axis-row">
+          <div class="axis-dot" style="background:rgba(175,95,255,0.9)"></div>
+          <div class="axis-name" style="color:rgba(175,95,255,0.8)">ENERGY</div>
+          <div class="axis-range">ambient → urgent</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: auth form -->
+    <div class="right">
+      <div class="auth-title">ENTER THE BUILDING</div>
+
+      <!-- Google -->
+      <button id="google-btn">
+        <svg width="16" height="16" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+          <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01a4.7 4.7 0 0 1-7.04-2.47H1.9v2.07A8 8 0 0 0 8.98 17z"/>
+          <path fill="#FBBC05" d="M4.64 10.58A4.7 4.7 0 0 1 4.4 9c0-.56.1-1.1.24-1.58V5.35H1.9A8 8 0 0 0 .98 9c0 1.29.31 2.51.92 3.65l2.74-2.07z"/>
+          <path fill="#EA4335" d="M8.98 3.58c1.23 0 2.33.42 3.2 1.25l2.4-2.4C13 .89 11.18.18 8.98.18A8 8 0 0 0 1.9 5.35L4.64 7.4a4.77 4.77 0 0 1 4.34-3.83z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="divider"><span>OR</span></div>
+
+      <!-- Email form -->
+      <form id="email-form" autocomplete="off">
+        <div class="field">
+          <input id="email" type="email" placeholder="email address" required autocomplete="email">
+        </div>
+        <div class="field">
+          <input id="password" type="password" placeholder="password" required autocomplete="current-password" minlength="6">
+        </div>
+        <button type="submit" id="submit-btn">ENTER</button>
+      </form>
+
+      <div class="auth-toggle">
+        <span id="toggle-text">no account?</span>
+        <a id="toggle-link">create one</a>
+      </div>
+      <div id="auth-msg"></div>
+    </div>
+
+  </div>
+
+  <!-- Redirect loading screen -->
+  <div id="redirect-overlay">
+    <div id="redirect-title">ENTERING THE BUILDING</div>
+    <div id="redirect-bar"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup,
+      signInWithEmailAndPassword, createUserWithEmailAndPassword,
+      onAuthStateChanged,
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey:            'AIzaSyBmXSuLjHRF1-JerUfXVp7qbwlRUj2aSPY',
+      authDomain:        'elevator-world.firebaseapp.com',
+      projectId:         'elevator-world',
+      storageBucket:     'elevator-world.firebasestorage.app',
+      messagingSenderId: '681903564322',
+      appId:             '1:681903564322:web:1be8978f3ecc1b0d770c7b',
+      databaseURL:       'https://elevator-world-default-rtdb.firebaseio.com',
+    };
+
+    const app      = initializeApp(firebaseConfig);
+    const auth     = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Already logged in → go straight to the building
+    onAuthStateChanged(auth, user => {
+      if (user) redirect();
+    });
+
+    function redirect() {
+      document.getElementById('redirect-overlay').classList.add('show');
+      setTimeout(() => { window.location.href = './index.html'; }, 800);
+    }
+
+    function setMsg(text, ok = false) {
+      const el = document.getElementById('auth-msg');
+      el.textContent = text;
+      el.className   = ok ? 'ok' : '';
+    }
+
+    function setBusy(busy) {
+      document.getElementById('submit-btn').disabled = busy;
+      document.getElementById('google-btn').disabled = busy;
+    }
+
+    // ── Google ──────────────────────────────────────────────
+    document.getElementById('google-btn').addEventListener('click', async () => {
+      setBusy(true); setMsg('');
+      try {
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged handles redirect
+      } catch (e) {
+        setMsg(friendlyError(e.code));
+        setBusy(false);
+      }
+    });
+
+    // ── Email / password ─────────────────────────────────────
+    let isCreating = false;
+
+    document.getElementById('toggle-link').addEventListener('click', () => {
+      isCreating = !isCreating;
+      document.getElementById('toggle-text').textContent = isCreating ? 'have an account?' : 'no account?';
+      document.getElementById('toggle-link').textContent = isCreating ? 'sign in'          : 'create one';
+      document.getElementById('submit-btn').textContent  = isCreating ? 'CREATE ACCOUNT'   : 'ENTER';
+      document.getElementById('password').minLength      = isCreating ? 6 : 1;
+      setMsg('');
+    });
+
+    document.getElementById('email-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const pass  = document.getElementById('password').value;
+      setBusy(true); setMsg('');
+      try {
+        if (isCreating) {
+          await createUserWithEmailAndPassword(auth, email, pass);
+        } else {
+          await signInWithEmailAndPassword(auth, email, pass);
+        }
+        // onAuthStateChanged handles redirect
+      } catch (e) {
+        setMsg(friendlyError(e.code));
+        setBusy(false);
+      }
+    });
+
+    function friendlyError(code) {
+      const map = {
+        'auth/user-not-found':       'no account with that email',
+        'auth/wrong-password':       'incorrect password',
+        'auth/email-already-in-use': 'email already registered — sign in instead',
+        'auth/invalid-email':        'invalid email address',
+        'auth/weak-password':        'password must be at least 6 characters',
+        'auth/popup-closed-by-user': 'sign-in window was closed',
+        'auth/network-request-failed': 'network error — check your connection',
+      };
+      return map[code] ?? code;
+    }
+  </script>
+</body>
+</html>

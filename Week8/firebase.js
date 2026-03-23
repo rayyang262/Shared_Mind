@@ -1,15 +1,8 @@
-// firebase.js — Firebase Realtime Database + Anonymous Auth
+// firebase.js — Firebase Realtime Database + Google / Email Auth
 // Handles: presence (user positions), content nodes, explored cell sharing
-//
-// ⚠️ SETUP REQUIRED:
-//   1. In your Firebase console → Realtime Database → create database
-//      (the URL is auto-generated as https://ginsengmuseum-default-rtdb.firebaseio.com)
-//   2. Set rules to allow authenticated reads/writes:
-//      { "rules": { ".read": "auth != null", ".write": "auth != null" } }
-//   3. Enable Anonymous Auth: Firebase console → Authentication → Sign-in method → Anonymous
 
 import { initializeApp }      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, signInAnonymously, onAuthStateChanged }
+import { getAuth, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getDatabase, ref, set, push, onDisconnect,
@@ -57,13 +50,11 @@ export function registerCallbacks({ onUserJoined, onUserLeft, onUserMoved, onCon
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-// Falls back to local-only (guest) mode if Firebase auth/RTDB isn't enabled yet.
+// Expects the user to already be signed in via login.html.
+// If not signed in, redirects back to login.html.
 export async function initFirebase() {
-  // Always assign a local identity first so the world loads regardless
+  // Assign a colour for this session
   localColor = PALETTES[Math.floor(Math.random() * PALETTES.length)];
-  localName  = ADJS[Math.floor(Math.random() * ADJS.length)]
-             + ' ' + NOUNS[Math.floor(Math.random() * NOUNS.length)];
-  localUserId = 'guest-' + Math.random().toString(36).slice(2, 8);
 
   let app, auth;
   try {
@@ -71,26 +62,26 @@ export async function initFirebase() {
     db   = getDatabase(app);
     auth = getAuth(app);
   } catch (e) {
-    console.warn('[firebase] init failed — running in local-only mode:', e.message);
-    return { userId: localUserId, color: localColor, name: localName };
-  }
-
-  try {
-    await signInAnonymously(auth);
-  } catch (e) {
-    // auth/admin-restricted-operation = Anonymous Auth not enabled in console
-    console.warn('[firebase] Anonymous Auth failed — running in local-only mode.\n' +
-      '  → Enable it: Firebase Console → Authentication → Sign-in method → Anonymous → Enable\n' +
-      '  Error:', e.message);
-    showFirebaseHint();
-    return { userId: localUserId, color: localColor, name: localName };
+    console.error('[firebase] init failed:', e.message);
+    window.location.href = './login.html';
+    return;
   }
 
   return new Promise(resolve => {
     onAuthStateChanged(auth, async user => {
-      if (!user) return;
+      if (!user) {
+        // Not signed in — send back to login
+        window.location.href = './login.html';
+        return;
+      }
 
       localUserId = user.uid;
+
+      // Use real display name (Google) or email prefix, fall back to poetic name
+      const emailName = user.email ? user.email.split('@')[0] : null;
+      const poeticName = ADJS[Math.floor(Math.random() * ADJS.length)]
+                       + ' ' + NOUNS[Math.floor(Math.random() * NOUNS.length)];
+      localName = user.displayName || emailName || poeticName;
 
       // Write presence entry
       userRef = ref(db, `elevatorWorld/users/${localUserId}`);
@@ -106,12 +97,9 @@ export async function initFirebase() {
         onDisconnect(userRef).remove();
       } catch (e) {
         console.warn('[firebase] RTDB write failed — check database rules:', e.message);
-        showFirebaseHint('RTDB rules');
         resolve({ userId: localUserId, color: localColor, name: localName });
         return;
       }
-
-      // Auto-remove on disconnect
 
       // Subscribe to other users
       const usersRef = ref(db, 'elevatorWorld/users');
@@ -137,26 +125,6 @@ export async function initFirebase() {
       resolve({ userId: localUserId, color: localColor, name: localName });
     });
   });
-}
-
-// ── Firebase setup hint (shown once on screen) ────────────────────────────────
-function showFirebaseHint(detail = 'Anonymous Auth') {
-  const el = document.createElement('div');
-  el.style.cssText = `
-    position:fixed; bottom:20px; right:20px; z-index:200;
-    background:rgba(20,0,0,0.9); border:1px solid rgba(255,80,80,0.5);
-    color:rgba(255,160,160,0.9); padding:12px 16px; font-size:10px;
-    font-family:'Courier New',monospace; max-width:300px; line-height:1.7;
-  `;
-  el.innerHTML =
-    `<strong style="color:#ff6b6b">Firebase not connected (${detail})</strong><br>` +
-    `Running in local-only mode — world works, no multi-user.<br><br>` +
-    `To enable multi-user:<br>` +
-    `1. Firebase Console → Auth → Sign-in method → <b>Anonymous → Enable</b><br>` +
-    `2. Realtime Database → Create database (US region)<br>` +
-    `3. Rules: <code>".read/.write": "auth != null"</code><br><br>` +
-    `<span style="cursor:pointer;text-decoration:underline" onclick="this.parentElement.remove()">dismiss</span>`;
-  document.body.appendChild(el);
 }
 
 // ── Broadcast my position ──────────────────────────────────────────────────────
