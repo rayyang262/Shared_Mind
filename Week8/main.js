@@ -4,6 +4,7 @@ import {
   addRemoteUser, removeRemoteUser, updateRemoteUser,
   addContentNode, getNeighbourPreview,
   getExploredCells,
+  rotateCameraByDelta, zoomCameraByDelta,
 } from './world3D.js';
 
 import {
@@ -156,13 +157,13 @@ function setupGestures() {
   // Right hand index finger movement tracking
   let handAccumX = 0;
   let handAccumY = 0;
-  const HAND_THRESHOLD = 0.08; // Threshold for triggering movement
+  const HAND_THRESHOLD = 0.06; // Threshold for triggering movement
 
   window.addEventListener('gesture:rightHandMove', (e) => {
     const { deltaX, deltaY } = e.detail;
 
-    // Accumulate deltas
-    handAccumX += deltaX;
+    // Accumulate deltas (camera is mirrored so invert X)
+    handAccumX -= deltaX;
     handAccumY += deltaY;
 
     // Check if we've crossed the threshold to trigger movement
@@ -171,36 +172,23 @@ function setupGestures() {
       handAccumX = 0;
     }
     if (Math.abs(handAccumY) > HAND_THRESHOLD) {
-      move(handAccumY > 0 ? 'down' : 'up'); // Inverted because screen Y goes down
+      move(handAccumY > 0 ? 'down' : 'up');
       handAccumY = 0;
     }
   });
 
-  // Left hand rotation (swipe)
+  // Left hand rotation (swipe) — direct call, no dynamic import
   window.addEventListener('gesture:leftHandRotate', (e) => {
     const { direction, magnitude } = e.detail;
-    if (magnitude > 0.02) {
-      // Import camera control from world3D
-      import('./world3D.js').then(({ rotateCameraByDelta }) => {
-        if (rotateCameraByDelta) {
-          const deltaTheta = direction === 'right' ? magnitude * 2 : -magnitude * 2;
-          rotateCameraByDelta(deltaTheta);
-        }
-      });
-    }
+    const deltaTheta = direction === 'right' ? magnitude * 3 : -magnitude * 3;
+    rotateCameraByDelta(deltaTheta);
   });
 
-  // Left hand zoom (pinch)
+  // Left hand zoom (pinch) — direct call
   window.addEventListener('gesture:leftHandZoom', (e) => {
     const { direction, magnitude } = e.detail;
-    if (magnitude > 0.01) {
-      import('./world3D.js').then(({ zoomCameraByDelta }) => {
-        if (zoomCameraByDelta) {
-          const deltaRadius = direction === 'in' ? magnitude * 40 : -magnitude * 40;
-          zoomCameraByDelta(deltaRadius);
-        }
-      });
-    }
+    const deltaRadius = direction === 'in' ? -magnitude * 60 : magnitude * 60;
+    zoomCameraByDelta(deltaRadius);
   });
 
   console.log('Gesture control system initialized');
