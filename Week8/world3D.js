@@ -8,6 +8,16 @@ let elevatorGroup, torchLight, figureGroup;
 export function getScene()         { return scene; }
 export function getCamera()        { return camera; }
 export function getElevatorGroup() { return elevatorGroup; }
+
+// ── Camera control via gestures ──────────────────────────────────────────────
+export function rotateCameraByDelta(deltaTheta) {
+  camTheta += deltaTheta;
+}
+
+export function zoomCameraByDelta(deltaRadius) {
+  camRadius = Math.max(10, Math.min(220, camRadius + deltaRadius));
+}
+
 let targetElevatorPos = new THREE.Vector3(0, 0, 0);
 
 // Camera orbit state — drag to rotate, wheel to zoom

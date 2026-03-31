@@ -65,6 +65,7 @@ async function init() {
   setupArrows();
   setupKeyboard();
   setupPostUI();
+  setupGestures();
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -148,6 +149,61 @@ function setupArrows() {
 
     btn.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
   });
+}
+
+// ── Gesture Control ───────────────────────────────────────────────────────────
+function setupGestures() {
+  // Right hand index finger movement tracking
+  let handAccumX = 0;
+  let handAccumY = 0;
+  const HAND_THRESHOLD = 0.08; // Threshold for triggering movement
+
+  window.addEventListener('gesture:rightHandMove', (e) => {
+    const { deltaX, deltaY } = e.detail;
+
+    // Accumulate deltas
+    handAccumX += deltaX;
+    handAccumY += deltaY;
+
+    // Check if we've crossed the threshold to trigger movement
+    if (Math.abs(handAccumX) > HAND_THRESHOLD) {
+      move(handAccumX > 0 ? 'right' : 'left');
+      handAccumX = 0;
+    }
+    if (Math.abs(handAccumY) > HAND_THRESHOLD) {
+      move(handAccumY > 0 ? 'down' : 'up'); // Inverted because screen Y goes down
+      handAccumY = 0;
+    }
+  });
+
+  // Left hand rotation (swipe)
+  window.addEventListener('gesture:leftHandRotate', (e) => {
+    const { direction, magnitude } = e.detail;
+    if (magnitude > 0.02) {
+      // Import camera control from world3D
+      import('./world3D.js').then(({ rotateCameraByDelta }) => {
+        if (rotateCameraByDelta) {
+          const deltaTheta = direction === 'right' ? magnitude * 2 : -magnitude * 2;
+          rotateCameraByDelta(deltaTheta);
+        }
+      });
+    }
+  });
+
+  // Left hand zoom (pinch)
+  window.addEventListener('gesture:leftHandZoom', (e) => {
+    const { direction, magnitude } = e.detail;
+    if (magnitude > 0.01) {
+      import('./world3D.js').then(({ zoomCameraByDelta }) => {
+        if (zoomCameraByDelta) {
+          const deltaRadius = direction === 'in' ? magnitude * 40 : -magnitude * 40;
+          zoomCameraByDelta(deltaRadius);
+        }
+      });
+    }
+  });
+
+  console.log('Gesture control system initialized');
 }
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────

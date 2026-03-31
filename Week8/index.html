@@ -312,6 +312,78 @@
       padding: 5px 9px; font-size: 9px; max-width: 160px;
       line-height: 1.5; opacity: 0; transition: opacity 0.5s;
     }
+
+    /* ── Hand Tracking ─────────────────────────────────── */
+    #hand-tracking-container {
+      position: fixed; top: 0; left: 0; z-index: 4;
+      pointer-events: none; display: flex; align-items: center; justify-content: center;
+    }
+    #hand-canvas {
+      max-width: 100%; max-height: 100vh; display: none;
+      opacity: 0.6;
+    }
+    #hand-controls {
+      position: absolute; top: 12px; right: 12px; z-index: 5;
+      background: var(--panel-bg); border: 1px solid var(--panel-edge);
+      padding: 6px 10px; font-size: 7px; letter-spacing: 1px;
+      color: var(--col-label);
+    }
+    #hand-status {
+      white-space: nowrap;
+    }
+
+    /* ── Voice Input UI ────────────────────────────────── */
+    #voice-input-ui {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 15; display: flex; flex-direction: column;
+      align-items: center; gap: 6px; pointer-events: none;
+    }
+    #voice-indicator {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--panel-bg); border: 1px solid var(--panel-edge);
+      padding: 8px 12px; border-radius: 4px;
+      font-size: 9px; letter-spacing: 1px;
+      color: var(--col-label);
+      transition: all 0.2s;
+    }
+    #voice-indicator.voice-off {
+      opacity: 0.4;
+    }
+    #voice-indicator.voice-on {
+      opacity: 1;
+      border-color: rgba(255, 165, 45, 0.5);
+      color: rgba(255, 165, 45, 0.9);
+      background: rgba(255, 165, 45, 0.05);
+    }
+    .voice-icon {
+      font-size: 12px;
+      animation: none;
+    }
+    #voice-indicator.voice-on .voice-icon {
+      animation: voicepulse 0.6s ease-in-out infinite;
+    }
+    @keyframes voicepulse {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+    .voice-status {
+      font-size: 8px;
+      white-space: nowrap;
+    }
+    #voice-transcript {
+      max-width: 400px; text-align: center;
+      font-size: 9px; color: rgba(255, 165, 45, 0.7);
+      line-height: 1.4; max-height: 60px; overflow: hidden;
+      min-height: 18px;
+    }
+
+    /* ── Gesture Hint ──────────────────────────────────── */
+    #gesture-hint {
+      position: absolute; top: 12px; left: 12px; z-index: 10;
+      pointer-events: none; font-size: 7px;
+      color: rgba(80,148,212,0.22); letter-spacing: 1px;
+      line-height: 2; text-align: left;
+    }
     .content-label.visible { opacity: 1; }
   </style>
 </head>
@@ -415,6 +487,37 @@
     <div id="gen-status">ready</div>
   </div>
 
+  <!-- MediaPipe Hand Tracking -->
+  <script async src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+  <!-- Hand Tracking Canvas & UI -->
+  <div id="hand-tracking-container">
+    <video id="hand-video" style="display: none;"></video>
+    <canvas id="hand-canvas"></canvas>
+    <div id="hand-controls">
+      <div id="hand-status">hand tracking ready</div>
+    </div>
+  </div>
+
+  <!-- Voice Input UI -->
+  <div id="voice-input-ui">
+    <div id="voice-indicator" class="voice-off">
+      <span class="voice-icon">🎤</span>
+      <span class="voice-status">ready</span>
+    </div>
+    <div id="voice-transcript"></div>
+  </div>
+
+  <!-- Hint: Hand Gestures -->
+  <div id="gesture-hint">
+    left: swipe rotate · pinch zoom
+    <br>right: index move · 5 fingers voice
+  </div>
+
+  <script type="module" src="handTracking.js"></script>
+  <script type="module" src="voiceInput.js"></script>
   <script type="module" src="main.js"></script>
 </body>
 </html>
