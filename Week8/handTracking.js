@@ -1,16 +1,15 @@
 /**
- * Hand Tracking Module
- * Uses MediaPipe Hands to detect hand gestures and emit events
+ * Hand Tracking Module — Simplified Gesture Model
  *
- * Gestures detected:
- * - Left hand swipe: rotate camera
- * - Left hand pinch: zoom in/out
- * - Right hand index finger: movement control
- * - Right hand high-five: activate voice input
+ * RIGHT HAND (user's right):
+ *   - Index finger only (others curled) → movement (swipe up/down/left/right)
+ *   - All 5 fingers up (high-five) held 3 seconds → activate voice input
  *
- * NOTE: MediaPipe labels "Left"/"Right" from the camera's perspective.
- *       Since the webcam is mirrored, the user's RIGHT hand is labeled "Left"
- *       and the user's LEFT hand is labeled "Right". We swap internally.
+ * LEFT HAND (user's left):
+ *   - Swipe left/right → rotate camera
+ *   - Palm up/down position → zoom in/out
+ *
+ * NOTE: MediaPipe labels are mirrored. "Left" from camera = user's RIGHT hand.
  */
 
 class HandTracker {
@@ -20,35 +19,34 @@ class HandTracker {
     this.canvasCtx = null;
     this.video = null;
 
-    // Hand state tracking (from USER's perspective, not camera)
+    // Left hand state (rotation + zoom)
     this.leftHand = {
       landmarks: null,
-      pinchDistance: 0,
-      swipeVector: { x: 0, y: 0 },
+      swipeVector: { x: 0 },
       prevPalmPos: null,
+      basePalmY: null,       // baseline Y for zoom
       confidence: 0,
     };
 
+    // Right hand state (movement + voice)
     this.rightHand = {
       landmarks: null,
-      indexPos: { x: 0, y: 0 },
-      fingerCount: 0,
-      isHighFive: false,
       prevIndexPos: null,
+      isIndexOnly: false,    // only index finger extended
+      isHighFive: false,
+      highFiveStart: 0,      // timestamp when high-five first detected
+      highFiveActivated: false, // true after 3s hold
       confidence: 0,
     };
 
-    // Gesture smoothing
+    // Tuning
     this.smoothingFactor = 0.25;
-
-    // Per-event debounce timers
     this.lastEventTimes = {};
-    this.debounceTime = 300; // ms per event type — deliberate pace
+    this.debounceTime = 300;
+    this.HIGH_FIVE_HOLD_MS = 3000; // 3 second hold to activate voice
 
-    // Debug overlay
+    // Debug
     this.debugLines = [];
-
-    // Performance monitoring
     this.fps = 0;
     this.frameCount = 0;
     this.lastFpsTime = Date.now();
@@ -57,186 +55,103 @@ class HandTracker {
   async initialize() {
     this.canvasElement = document.getElementById('hand-canvas');
     this.video = document.getElementById('hand-video');
-
-    if (!this.canvasElement || !this.video) {
-      console.error('Hand tracking canvas or video element not found');
-      return false;
-    }
+    if (!this.canvasElement || !this.video) return false;
 
     try {
       const { Hands } = window;
-
       this.hands = new Hands({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
       });
-
       this.hands.setOptions({
         maxNumHands: 2,
         modelComplexity: 0,
         minDetectionConfidence: 0.6,
         minTrackingConfidence: 0.5,
       });
-
       this.hands.onResults(this.onResults.bind(this));
-
-      // Setup canvas
       this.canvasCtx = this.canvasElement.getContext('2d');
 
-      // Get camera
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
+          audio: false,
         });
-
         this.video.srcObject = stream;
         this.video.setAttribute('playsinline', '');
-
-        await new Promise((resolve) => {
-          this.video.onloadedmetadata = () => {
-            this.video.play();
-            resolve();
-          };
-        });
-
+        await new Promise((r) => { this.video.onloadedmetadata = () => { this.video.play(); r(); }; });
         this.processFrames();
         this.updateStatus('tracking active');
         return true;
-      } catch (error) {
-        console.error('Failed to access camera:', error);
+      } catch (e) {
+        console.error('Failed to access camera:', e);
         this.updateStatus('camera denied');
         return false;
       }
-    } catch (error) {
-      console.error('Failed to initialize hand tracking:', error);
+    } catch (e) {
+      console.error('Failed to initialize hand tracking:', e);
       this.updateStatus('init failed');
       return false;
     }
   }
 
   processFrames() {
-    let processing = false;
-    const processFrame = async () => {
-      if (!processing && this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
-        processing = true;
-        try {
-          await this.hands.send({ image: this.video });
-        } catch (e) {
-          // skip frame
-        }
-        processing = false;
+    let busy = false;
+    const tick = async () => {
+      if (!busy && this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
+        busy = true;
+        try { await this.hands.send({ image: this.video }); } catch (_) {}
+        busy = false;
       }
-      requestAnimationFrame(processFrame);
+      requestAnimationFrame(tick);
     };
-    processFrame();
+    tick();
   }
 
+  // ── Results callback ────────────────────────────────────────────────────────
   onResults(results) {
     const ctx = this.canvasCtx;
     const w = this.canvasElement.width;
     const h = this.canvasElement.height;
-
-    // Clear canvas (video feed shown by <video> element underneath)
     ctx.clearRect(0, 0, w, h);
-
-    // Reset debug lines
     this.debugLines = [];
 
-    // Reset confidence if no hands detected
     if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
       this.leftHand.confidence = 0;
       this.leftHand.prevPalmPos = null;
+      this.leftHand.basePalmY = null;
       this.rightHand.confidence = 0;
       this.rightHand.prevIndexPos = null;
+      this.resetHighFiveTimer();
       this.debugLines.push('no hands detected');
     }
 
-    // Process detected hands
     if (results.multiHandLandmarks) {
       for (let i = 0; i < results.multiHandLandmarks.length; i++) {
         const landmarks = results.multiHandLandmarks[i];
         const rawLabel = results.multiHandedness[i].label;
         const confidence = results.multiHandedness[i].score;
 
-        // SWAP labels: MediaPipe "Left" = user's RIGHT hand (mirrored camera)
+        // Swap: MediaPipe "Left" = user's RIGHT
         const userHand = rawLabel === 'Left' ? 'Right' : 'Left';
-
-        // Draw landmarks on canvas (mirrored)
         this.drawLandmarks(ctx, landmarks, w, h, userHand);
 
         if (userHand === 'Left') {
           this.processLeftHand(landmarks, confidence);
-        } else if (userHand === 'Right') {
+        } else {
           this.processRightHand(landmarks, confidence);
         }
       }
     }
 
-    // Draw debug overlay
     this.drawDebugOverlay(ctx, w, h);
-
     this.updateFps();
   }
 
-  drawLandmarks(ctx, landmarks, w, h, handLabel) {
-    const color = handLabel === 'Left' ? '#4dc8ff' : '#ffaa2d';
-
-    // Draw connections
-    const connections = [
-      [0,1],[1,2],[2,3],[3,4],       // thumb
-      [0,5],[5,6],[6,7],[7,8],       // index
-      [5,9],[9,10],[10,11],[11,12],  // middle
-      [9,13],[13,14],[14,15],[15,16],// ring
-      [13,17],[17,18],[18,19],[19,20],// pinky
-      [0,17]                          // palm base
-    ];
-
-    ctx.strokeStyle = color + '88';
-    ctx.lineWidth = 1.5;
-    for (const [a, b] of connections) {
-      ctx.beginPath();
-      ctx.moveTo((1 - landmarks[a].x) * w, landmarks[a].y * h);
-      ctx.lineTo((1 - landmarks[b].x) * w, landmarks[b].y * h);
-      ctx.stroke();
-    }
-
-    // Draw points
-    for (let j = 0; j < landmarks.length; j++) {
-      const lm = landmarks[j];
-      const x = (1 - lm.x) * w; // mirror X
-      const y = lm.y * h;
-      const r = [4, 8, 12, 16, 20].includes(j) ? 4 : 2; // bigger dots for fingertips
-
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = [4, 8, 12, 16, 20].includes(j) ? '#fff' : color;
-      ctx.fill();
-    }
-
-    // Label
-    ctx.fillStyle = color;
-    ctx.font = '10px monospace';
-    ctx.fillText(handLabel, (1 - landmarks[0].x) * w - 10, landmarks[0].y * h + 15);
-  }
-
-  drawDebugOverlay(ctx, w, h) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(0, h - 14 * (this.debugLines.length + 1), w, 14 * (this.debugLines.length + 1));
-
-    ctx.fillStyle = '#0f0';
-    ctx.font = '10px monospace';
-    this.debugLines.forEach((line, i) => {
-      ctx.fillText(line, 4, h - 6 - (this.debugLines.length - 1 - i) * 14);
-    });
-  }
-
+  // ── LEFT HAND: rotation (swipe) + zoom (palm Y) ────────────────────────────
   processLeftHand(landmarks, confidence) {
     this.leftHand.landmarks = landmarks;
     this.leftHand.confidence = confidence;
 
-    // Palm position
     const wrist = landmarks[0];
     const middleBase = landmarks[9];
     const palmPos = {
@@ -244,20 +159,17 @@ class HandTracker {
       y: (wrist.y + middleBase.y) / 2,
     };
 
-    // Swipe detection
+    // ── Swipe → rotate ──
     if (this.leftHand.prevPalmPos) {
-      const swipeX = palmPos.x - this.leftHand.prevPalmPos.x;
-
-      // Smoothed swipe
+      const dx = palmPos.x - this.leftHand.prevPalmPos.x;
       this.leftHand.swipeVector.x =
         this.leftHand.swipeVector.x * (1 - this.smoothingFactor) +
-        swipeX * this.smoothingFactor;
+        dx * this.smoothingFactor;
 
       const mag = Math.abs(this.leftHand.swipeVector.x);
-      this.debugLines.push(`L swipe: ${this.leftHand.swipeVector.x.toFixed(4)} mag:${mag.toFixed(4)}`);
+      this.debugLines.push(`L swipe: ${mag.toFixed(4)}`);
 
       if (mag > 0.015) {
-        // Note: camera is mirrored, so we invert direction
         this.emitEvent('gesture:leftHandRotate', {
           direction: this.leftHand.swipeVector.x > 0 ? 'left' : 'right',
           magnitude: mag,
@@ -265,95 +177,129 @@ class HandTracker {
       }
     }
 
-    // Pinch distance
-    const thumbTip = landmarks[4];
-    const indexTip = landmarks[8];
-    const pinchDistance = this.euclideanDistance(thumbTip, indexTip);
+    // ── Palm Y → zoom ──
+    // Set baseline on first frame, then track delta from baseline
+    if (this.leftHand.basePalmY === null) {
+      this.leftHand.basePalmY = palmPos.y;
+    }
+    const zoomDelta = palmPos.y - this.leftHand.basePalmY;
+    this.debugLines.push(`L zoom: dy:${zoomDelta.toFixed(3)}`);
 
-    if (this.leftHand.pinchDistance > 0) {
-      const pinchDelta = pinchDistance - this.leftHand.pinchDistance;
-      this.debugLines.push(`L pinch: ${pinchDistance.toFixed(3)} d:${pinchDelta.toFixed(4)}`);
-
-      if (Math.abs(pinchDelta) > 0.02) {
-        this.emitEvent('gesture:leftHandZoom', {
-          direction: pinchDelta > 0 ? 'out' : 'in',
-          magnitude: Math.abs(pinchDelta),
-          distance: pinchDistance,
-        });
-      }
+    // Hand moves DOWN in screen = y increases = zoom out
+    // Hand moves UP in screen = y decreases = zoom in
+    if (Math.abs(zoomDelta) > 0.06) {
+      this.emitEvent('gesture:leftHandZoom', {
+        direction: zoomDelta < 0 ? 'in' : 'out',
+        magnitude: Math.abs(zoomDelta),
+      });
+      // Slowly recenter baseline toward current position
+      this.leftHand.basePalmY += zoomDelta * 0.3;
     }
 
-    this.leftHand.pinchDistance = pinchDistance;
     this.leftHand.prevPalmPos = palmPos;
   }
 
+  // ── RIGHT HAND: index-only movement OR high-five voice ──────────────────────
   processRightHand(landmarks, confidence) {
     this.rightHand.landmarks = landmarks;
     this.rightHand.confidence = confidence;
 
-    const indexTip = landmarks[8];
-    this.rightHand.indexPos = { x: indexTip.x, y: indexTip.y };
+    const fingersUp = this.countFingersUp(landmarks);
+    const isIndexOnly = this.detectIndexOnly(landmarks);
+    const isHighFive = fingersUp >= 5;
 
-    // Index finger movement
-    if (this.rightHand.prevIndexPos) {
-      const deltaX = indexTip.x - this.rightHand.prevIndexPos.x;
-      const deltaY = indexTip.y - this.rightHand.prevIndexPos.y;
+    this.rightHand.isIndexOnly = isIndexOnly;
+    this.debugLines.push(`R fingers:${fingersUp} idx:${isIndexOnly ? 'Y' : 'n'} hi5:${isHighFive ? 'Y' : 'n'}`);
 
-      this.debugLines.push(`R idx: dx:${deltaX.toFixed(4)} dy:${deltaY.toFixed(4)}`);
+    // ── HIGH-FIVE: 3-second hold for voice ──
+    if (isHighFive) {
+      if (!this.rightHand.isHighFive) {
+        // Just started high-five
+        this.rightHand.highFiveStart = Date.now();
+        this.rightHand.isHighFive = true;
+      }
 
-      if (Math.abs(deltaX) > 0.015 || Math.abs(deltaY) > 0.015) {
-        this.emitEvent('gesture:rightHandMove', {
-          x: indexTip.x,
-          y: indexTip.y,
-          deltaX: deltaX,
-          deltaY: deltaY,
-        });
+      const held = Date.now() - this.rightHand.highFiveStart;
+      const remaining = Math.max(0, this.HIGH_FIVE_HOLD_MS - held);
+      this.debugLines.push(`hi5 hold: ${(held / 1000).toFixed(1)}s / 3s`);
+
+      if (held >= this.HIGH_FIVE_HOLD_MS && !this.rightHand.highFiveActivated) {
+        this.rightHand.highFiveActivated = true;
+        this.emitEvent('gesture:rightHandHighFive', { active: true });
+        this.debugLines.push('VOICE ACTIVATED');
+      }
+
+      // Don't track index movement during high-five
+      this.rightHand.prevIndexPos = null;
+      return;
+    } else {
+      // Hand dropped from high-five
+      if (this.rightHand.isHighFive) {
+        if (this.rightHand.highFiveActivated) {
+          this.emitEvent('gesture:rightHandHighFive', { active: false });
+        }
+        this.resetHighFiveTimer();
       }
     }
 
-    // High-five detection
-    const isHighFive = this.detectHighFive(landmarks);
-    this.debugLines.push(`R hi5: ${isHighFive ? 'YES' : 'no'}`);
+    // ── INDEX ONLY: movement tracking ──
+    if (isIndexOnly) {
+      const indexTip = landmarks[8];
 
-    if (isHighFive && !this.rightHand.isHighFive) {
-      this.emitEvent('gesture:rightHandHighFive', { active: true });
-    } else if (!isHighFive && this.rightHand.isHighFive) {
-      this.emitEvent('gesture:rightHandHighFive', { active: false });
-    }
-    this.rightHand.isHighFive = isHighFive;
-    this.rightHand.fingerCount = this.countFingers(landmarks);
-    this.rightHand.prevIndexPos = { x: indexTip.x, y: indexTip.y };
-  }
+      if (this.rightHand.prevIndexPos) {
+        const deltaX = indexTip.x - this.rightHand.prevIndexPos.x;
+        const deltaY = indexTip.y - this.rightHand.prevIndexPos.y;
 
-  detectHighFive(landmarks) {
-    // All 5 fingertips above their MCP joints (more reliable than PIP)
-    const tips = [8, 12, 16, 20]; // skip thumb, check 4 fingers
-    const mcps = [5, 9, 13, 17];
+        this.debugLines.push(`R move: dx:${deltaX.toFixed(4)} dy:${deltaY.toFixed(4)}`);
 
-    let fingersUp = 0;
-    for (let i = 0; i < tips.length; i++) {
-      if (landmarks[tips[i]].y < landmarks[mcps[i]].y) {
-        fingersUp++;
+        if (Math.abs(deltaX) > 0.015 || Math.abs(deltaY) > 0.015) {
+          this.emitEvent('gesture:rightHandMove', {
+            x: indexTip.x,
+            y: indexTip.y,
+            deltaX,
+            deltaY,
+          });
+        }
       }
+
+      this.rightHand.prevIndexPos = { x: indexTip.x, y: indexTip.y };
+    } else {
+      // Not index-only — reset tracking
+      this.rightHand.prevIndexPos = null;
     }
-
-    // Thumb: tip.x further from palm center than thumb base
-    const thumbTip = landmarks[4];
-    const thumbBase = landmarks[2];
-    const palmCenter = landmarks[9];
-    const thumbOut = Math.abs(thumbTip.x - palmCenter.x) > Math.abs(thumbBase.x - palmCenter.x);
-
-    return fingersUp >= 4 && thumbOut;
   }
 
-  countFingers(landmarks) {
+  resetHighFiveTimer() {
+    this.rightHand.isHighFive = false;
+    this.rightHand.highFiveStart = 0;
+    this.rightHand.highFiveActivated = false;
+  }
+
+  // ── Gesture detection helpers ───────────────────────────────────────────────
+
+  /** Returns true if ONLY the index finger is extended (others curled) */
+  detectIndexOnly(landmarks) {
+    // Index: tip above PIP
+    const indexUp = landmarks[8].y < landmarks[6].y;
+
+    // Middle, ring, pinky: tips BELOW their PIP joints (curled)
+    const middleCurled = landmarks[12].y > landmarks[10].y;
+    const ringCurled   = landmarks[16].y > landmarks[14].y;
+    const pinkyCurled  = landmarks[20].y > landmarks[18].y;
+
+    // Thumb can be either way — ignore it
+    return indexUp && middleCurled && ringCurled && pinkyCurled;
+  }
+
+  /** Count how many fingers are extended upward */
+  countFingersUp(landmarks) {
     const tips = [8, 12, 16, 20];
     const mcps = [5, 9, 13, 17];
     let count = 0;
     for (let i = 0; i < tips.length; i++) {
       if (landmarks[tips[i]].y < landmarks[mcps[i]].y) count++;
     }
-    // thumb
+    // Thumb
     const thumbTip = landmarks[4];
     const thumbBase = landmarks[2];
     const palmCenter = landmarks[9];
@@ -368,14 +314,62 @@ class HandTracker {
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
 
-  emitEvent(eventName, data) {
-    // Per-event-type debounce
+  // ── Event emission with per-type debounce ───────────────────────────────────
+  emitEvent(name, data) {
     const now = Date.now();
-    const lastTime = this.lastEventTimes[eventName] || 0;
-    if (now - lastTime < this.debounceTime) return;
-    this.lastEventTimes[eventName] = now;
+    // High-five events bypass debounce (need precise timing)
+    if (name !== 'gesture:rightHandHighFive') {
+      const last = this.lastEventTimes[name] || 0;
+      if (now - last < this.debounceTime) return;
+    }
+    this.lastEventTimes[name] = now;
+    window.dispatchEvent(new CustomEvent(name, { detail: data }));
+  }
 
-    window.dispatchEvent(new CustomEvent(eventName, { detail: data }));
+  // ── Drawing ─────────────────────────────────────────────────────────────────
+  drawLandmarks(ctx, landmarks, w, h, handLabel) {
+    const color = handLabel === 'Left' ? '#4dc8ff' : '#ffaa2d';
+    const connections = [
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [5,9],[9,10],[10,11],[11,12],
+      [9,13],[13,14],[14,15],[15,16],
+      [13,17],[17,18],[18,19],[19,20],
+      [0,17],
+    ];
+    ctx.strokeStyle = color + '88';
+    ctx.lineWidth = 1.5;
+    for (const [a, b] of connections) {
+      ctx.beginPath();
+      ctx.moveTo((1 - landmarks[a].x) * w, landmarks[a].y * h);
+      ctx.lineTo((1 - landmarks[b].x) * w, landmarks[b].y * h);
+      ctx.stroke();
+    }
+    for (let j = 0; j < landmarks.length; j++) {
+      const lm = landmarks[j];
+      const x = (1 - lm.x) * w;
+      const y = lm.y * h;
+      const isTip = [4, 8, 12, 16, 20].includes(j);
+      ctx.beginPath();
+      ctx.arc(x, y, isTip ? 4 : 2, 0, 2 * Math.PI);
+      ctx.fillStyle = isTip ? '#fff' : color;
+      ctx.fill();
+    }
+    ctx.fillStyle = color;
+    ctx.font = '10px monospace';
+    ctx.fillText(handLabel, (1 - landmarks[0].x) * w - 10, landmarks[0].y * h + 15);
+  }
+
+  drawDebugOverlay(ctx, w, h) {
+    const lines = this.debugLines;
+    if (!lines.length) return;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, h - 14 * (lines.length + 1), w, 14 * (lines.length + 1));
+    ctx.fillStyle = '#0f0';
+    ctx.font = '10px monospace';
+    lines.forEach((line, i) => {
+      ctx.fillText(line, 4, h - 6 - (lines.length - 1 - i) * 14);
+    });
   }
 
   updateStatus(status) {
@@ -390,7 +384,6 @@ class HandTracker {
       this.fps = this.frameCount;
       this.frameCount = 0;
       this.lastFpsTime = now;
-
       const lc = this.leftHand.confidence ? (this.leftHand.confidence * 100).toFixed(0) : '-';
       const rc = this.rightHand.confidence ? (this.rightHand.confidence * 100).toFixed(0) : '-';
       this.updateStatus(`${this.fps}fps · L:${lc}% R:${rc}%`);
@@ -405,19 +398,13 @@ class HandTracker {
   }
 }
 
-// Initialize on page load
+// Initialize
 const handTracker = new HandTracker();
-
 window.addEventListener('load', async () => {
   console.log('Initializing hand tracking...');
-  const success = await handTracker.initialize();
-  if (!success) {
-    console.warn('Hand tracking unavailable — falling back to keyboard/mouse');
-  }
+  const ok = await handTracker.initialize();
+  if (!ok) console.warn('Hand tracking unavailable — falling back to keyboard/mouse');
 });
-
-window.addEventListener('beforeunload', () => {
-  handTracker.destroy();
-});
+window.addEventListener('beforeunload', () => handTracker.destroy());
 
 export { handTracker, HandTracker };
