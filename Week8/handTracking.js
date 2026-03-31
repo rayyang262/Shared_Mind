@@ -83,9 +83,6 @@ class HandTracker {
 
       // Setup canvas
       this.canvasCtx = this.canvasElement.getContext('2d');
-      this.canvasElement.width = 320;
-      this.canvasElement.height = 240;
-      this.canvasElement.style.display = 'block';
 
       // Get camera
       try {
@@ -141,13 +138,8 @@ class HandTracker {
     const w = this.canvasElement.width;
     const h = this.canvasElement.height;
 
-    // Draw mirrored camera feed
-    ctx.save();
+    // Clear canvas (video feed shown by <video> element underneath)
     ctx.clearRect(0, 0, w, h);
-    ctx.translate(w, 0);
-    ctx.scale(-1, 1); // mirror
-    ctx.drawImage(this.video, 0, 0, w, h);
-    ctx.restore();
 
     // Reset debug lines
     this.debugLines = [];
