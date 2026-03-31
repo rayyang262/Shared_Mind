@@ -157,7 +157,7 @@ function setupGestures() {
   // Right hand index finger movement tracking
   let handAccumX = 0;
   let handAccumY = 0;
-  const HAND_THRESHOLD = 0.06; // Threshold for triggering movement
+  const HAND_THRESHOLD = 0.12; // Threshold for triggering movement — deliberate pace
 
   window.addEventListener('gesture:rightHandMove', (e) => {
     const { deltaX, deltaY } = e.detail;
@@ -180,14 +180,14 @@ function setupGestures() {
   // Left hand rotation (swipe) — direct call, no dynamic import
   window.addEventListener('gesture:leftHandRotate', (e) => {
     const { direction, magnitude } = e.detail;
-    const deltaTheta = direction === 'right' ? magnitude * 3 : -magnitude * 3;
+    const deltaTheta = direction === 'right' ? magnitude * 1.5 : -magnitude * 1.5;
     rotateCameraByDelta(deltaTheta);
   });
 
   // Left hand zoom (pinch) — direct call
   window.addEventListener('gesture:leftHandZoom', (e) => {
     const { direction, magnitude } = e.detail;
-    const deltaRadius = direction === 'in' ? -magnitude * 60 : magnitude * 60;
+    const deltaRadius = direction === 'in' ? -magnitude * 30 : magnitude * 30;
     zoomCameraByDelta(deltaRadius);
   });
 

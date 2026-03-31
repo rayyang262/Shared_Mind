@@ -39,11 +39,11 @@ class HandTracker {
     };
 
     // Gesture smoothing
-    this.smoothingFactor = 0.35;
+    this.smoothingFactor = 0.25;
 
     // Per-event debounce timers
     this.lastEventTimes = {};
-    this.debounceTime = 30; // ms per event type
+    this.debounceTime = 300; // ms per event type — deliberate pace
 
     // Debug overlay
     this.debugLines = [];
@@ -256,7 +256,7 @@ class HandTracker {
       const mag = Math.abs(this.leftHand.swipeVector.x);
       this.debugLines.push(`L swipe: ${this.leftHand.swipeVector.x.toFixed(4)} mag:${mag.toFixed(4)}`);
 
-      if (mag > 0.005) {
+      if (mag > 0.015) {
         // Note: camera is mirrored, so we invert direction
         this.emitEvent('gesture:leftHandRotate', {
           direction: this.leftHand.swipeVector.x > 0 ? 'left' : 'right',
@@ -274,7 +274,7 @@ class HandTracker {
       const pinchDelta = pinchDistance - this.leftHand.pinchDistance;
       this.debugLines.push(`L pinch: ${pinchDistance.toFixed(3)} d:${pinchDelta.toFixed(4)}`);
 
-      if (Math.abs(pinchDelta) > 0.008) {
+      if (Math.abs(pinchDelta) > 0.02) {
         this.emitEvent('gesture:leftHandZoom', {
           direction: pinchDelta > 0 ? 'out' : 'in',
           magnitude: Math.abs(pinchDelta),
@@ -301,7 +301,7 @@ class HandTracker {
 
       this.debugLines.push(`R idx: dx:${deltaX.toFixed(4)} dy:${deltaY.toFixed(4)}`);
 
-      if (Math.abs(deltaX) > 0.008 || Math.abs(deltaY) > 0.008) {
+      if (Math.abs(deltaX) > 0.015 || Math.abs(deltaY) > 0.015) {
         this.emitEvent('gesture:rightHandMove', {
           x: indexTip.x,
           y: indexTip.y,
