@@ -56,9 +56,12 @@ class VoiceInput {
         }
       }
 
-      // Display transcript
+      // Display transcript in overlay AND in the post input field live
       const displayText = this.finalTranscript + this.interimTranscript;
       this.updateTranscript(displayText);
+      if (this.postInput) {
+        this.postInput.value = displayText;
+      }
     };
 
     // End recognition
