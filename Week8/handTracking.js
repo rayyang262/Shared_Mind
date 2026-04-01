@@ -24,7 +24,6 @@ class HandTracker {
       landmarks: null,
       swipeVector: { x: 0 },
       prevPalmPos: null,
-      basePalmY: null,       // baseline Y for zoom
       confidence: 0,
     };
 
@@ -118,7 +117,6 @@ class HandTracker {
     if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
       this.leftHand.confidence = 0;
       this.leftHand.prevPalmPos = null;
-      this.leftHand.basePalmY = null;
       this.rightHand.confidence = 0;
       this.rightHand.prevIndexPos = null;
       this.resetHighFiveTimer();
@@ -177,23 +175,19 @@ class HandTracker {
       }
     }
 
-    // ── Palm Y → zoom ──
-    // Set baseline on first frame, then track delta from baseline
-    if (this.leftHand.basePalmY === null) {
-      this.leftHand.basePalmY = palmPos.y;
-    }
-    const zoomDelta = palmPos.y - this.leftHand.basePalmY;
-    this.debugLines.push(`L zoom: dy:${zoomDelta.toFixed(3)}`);
+    // ── Palm Y vs camera midline → zoom ──
+    // 0.5 = horizontal center of camera frame
+    // Above midline (y < 0.5) = zoom in, below (y > 0.5) = zoom out
+    const distFromMid = palmPos.y - 0.5;
+    const DEAD_ZONE = 0.08; // ignore small deviations near center
 
-    // Hand moves DOWN in screen = y increases = zoom out
-    // Hand moves UP in screen = y decreases = zoom in
-    if (Math.abs(zoomDelta) > 0.06) {
+    this.debugLines.push(`L zoom: y:${palmPos.y.toFixed(2)} dist:${distFromMid.toFixed(3)}`);
+
+    if (Math.abs(distFromMid) > DEAD_ZONE) {
       this.emitEvent('gesture:leftHandZoom', {
-        direction: zoomDelta < 0 ? 'in' : 'out',
-        magnitude: Math.abs(zoomDelta),
+        direction: distFromMid < 0 ? 'in' : 'out',
+        magnitude: Math.abs(distFromMid) - DEAD_ZONE,
       });
-      // Slowly recenter baseline toward current position
-      this.leftHand.basePalmY += zoomDelta * 0.3;
     }
 
     this.leftHand.prevPalmPos = palmPos;
