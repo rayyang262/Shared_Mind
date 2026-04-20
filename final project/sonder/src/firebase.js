@@ -59,14 +59,16 @@ export const logout      = ()           => signOut(auth);
 // ============================================================================
 //  Schema:
 //     memories/{id}
-//       uid:        owner's auth uid
-//       song:       { spotifyId, name, artists[], albumArt, previewUrl }
-//       note:       string
-//       location:   string
-//       photoUrl:   string | null   (TODO: photo upload)
-//       date:       ISO date string (YYYY-MM-DD)
-//       isPublic:   boolean
-//       createdAt:  serverTimestamp
+//       uid:          owner's auth uid
+//       authorEmail:  owner's email (for display in feed)
+//       authorName:   owner's display name (if Google sign-in)
+//       song:         { spotifyId, name, artists[], albumArt, previewUrl }
+//       note:         string
+//       location:     string
+//       photoUrl:     string | null   (TODO: photo upload)
+//       date:         ISO date string (YYYY-MM-DD)
+//       isPublic:     boolean
+//       createdAt:    serverTimestamp
 // ============================================================================
 
 export async function createMemory({ song, note, location, photoUrl, date, isPublic }) {
@@ -74,6 +76,8 @@ export async function createMemory({ song, note, location, photoUrl, date, isPub
   if (!user) throw new Error('Not signed in');
   return addDoc(collection(db, 'memories'), {
     uid: user.uid,
+    authorEmail: user.email ?? null,
+    authorName: user.displayName ?? null,
     song, note, location, photoUrl, date, isPublic,
     createdAt: serverTimestamp()
   });
@@ -102,6 +106,33 @@ export async function getPublicMemories() {
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+}
+
+// Feed = all of your own memories (public + private) + everyone else's public ones.
+// Sorted newest → oldest. Uses createdAt (log time), falls back to date (memory date).
+export async function getFeedMemories() {
+  const user = auth.currentUser;
+  if (!user) return [];
+  const [mine, pub] = await Promise.all([getMyMemories(), getPublicMemories()]);
+  // Merge + dedupe by id (your own public memories show up in both queries).
+  const seen = new Set();
+  const merged = [];
+  for (const m of [...mine, ...pub]) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    merged.push(m);
+  }
+  return merged.sort((a, b) => sortKey(b) - sortKey(a));
+}
+
+// Unix seconds — createdAt if present, else parsed from date field, else 0.
+function sortKey(m) {
+  if (m.createdAt?.seconds) return m.createdAt.seconds;
+  if (m.date) {
+    const t = Date.parse(m.date);
+    if (!isNaN(t)) return t / 1000;
+  }
+  return 0;
 }
 
 

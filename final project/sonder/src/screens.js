@@ -13,10 +13,10 @@
 import {
   auth, logout,
   signInEmail, signUpEmail, signInGoogle,
-  createMemory, getMyMemories, getMemory, getPublicMemories,
+  createMemory, getMyMemories, getMemory, getPublicMemories, getFeedMemories,
   addComment, getComments
 } from './firebase.js';
-import { searchTracks, setToken, getToken, clearToken } from './spotify.js';
+import { searchTracks, startLogin, isConnected, disconnect } from './spotify.js';
 import { navigate } from './main.js';
 import * as THREE from 'three';
 
@@ -76,35 +76,38 @@ export function renderLogin(root) {
 
 
 // ============================================================================
-//  [FEED]  your own memories, newest first
+//  [FEED]  your own memories + everyone else's public ones, newest first
 // ============================================================================
 export async function renderFeed(root) {
-  root.innerHTML = `<h1>Your memories</h1><div id="list">Loading…</div>`;
+  root.innerHTML = `<h1>Feed</h1><div id="list">Loading…</div>`;
   const list = root.querySelector('#list');
+  const currentUid = auth.currentUser?.uid;
 
   try {
-    const memories = await getMyMemories();
+    const memories = await getFeedMemories();
     if (memories.length === 0) {
       list.innerHTML = `
         <div class="empty">
-          No memories yet. <a href="#/log">Log your first one →</a>
+          Nothing yet. <a href="#/log">Log your first memory →</a>
         </div>`;
       return;
     }
-    list.innerHTML = memories.map(memoryCard).join('');
+    list.innerHTML = memories.map((m) => memoryCard(m, currentUid)).join('');
   } catch (e) {
     list.innerHTML = `<div class="error">${esc(e.message)}</div>`;
   }
 }
 
-function memoryCard(m) {
+function memoryCard(m, currentUid) {
   const artists = m.song?.artists?.join(', ') || '';
   const date = m.date ? new Date(m.date).toLocaleDateString() : '';
-  const visibility = m.isPublic ? 'public' : 'private';
+  const isMine = m.uid === currentUid;
+  const author = isMine ? 'you' : (m.authorName || m.authorEmail || 'someone');
+  const visibility = isMine ? (m.isPublic ? 'public' : 'private') : 'public';
   return `
     <a href="#/memory/${m.id}" style="text-decoration: none; color: inherit;">
-      <div class="card">
-        <div class="meta">${date} · ${esc(m.location || 'somewhere')} · ${visibility}</div>
+      <div class="card"${isMine ? ' style="border-left: 2px solid var(--accent);"' : ''}>
+        <div class="meta">${esc(author)} · ${date} · ${esc(m.location || 'somewhere')} · ${visibility}</div>
         <div class="song">${esc(m.song?.name || 'Untitled')}</div>
         <div class="meta">${esc(artists)}</div>
         ${m.note ? `<div class="note">"${esc(m.note)}"</div>` : ''}
@@ -123,16 +126,15 @@ export function renderLog(root) {
   root.innerHTML = `
     <h1>Log a memory</h1>
 
-    ${getToken() ? '' : `
+    ${isConnected() ? '' : `
       <div class="card">
-        <label>Spotify token (temporary — paste from terminal curl command)</label>
-        <input id="tokenInput" type="text" placeholder="BQC..." />
-        <button id="saveToken">Save token</button>
+        <label>Connect Spotify to search songs</label>
+        <button id="connectSpotify">Connect Spotify</button>
       </div>`}
 
     <div class="card">
       <label>Search a song</label>
-      <input id="search" type="text" placeholder="Try: 'sweater weather'" />
+      <input id="search" type="text" placeholder="Try: 'sweater weather'" ${isConnected() ? '' : 'disabled'} />
       <div id="results"></div>
     </div>
 
@@ -159,13 +161,10 @@ export function renderLog(root) {
   // default date = today
   root.querySelector('#date').value = new Date().toISOString().slice(0, 10);
 
-  // save token (if shown)
-  const tokenBtn = root.querySelector('#saveToken');
-  if (tokenBtn) {
-    tokenBtn.onclick = () => {
-      const v = root.querySelector('#tokenInput').value.trim();
-      if (v) { setToken(v); renderLog(root); }
-    };
+  // Spotify connect button (if not connected)
+  const connectBtn = root.querySelector('#connectSpotify');
+  if (connectBtn) {
+    connectBtn.onclick = () => startLogin();
   }
 
   // debounced spotify search
@@ -389,6 +388,7 @@ export async function renderDiscovery(root) {
 // ============================================================================
 export function renderProfile(root) {
   const user = auth.currentUser;
+  const connected = isConnected();
   root.innerHTML = `
     <h1>Profile</h1>
     <div class="card">
@@ -398,12 +398,17 @@ export function renderProfile(root) {
 
     <div class="card">
       <div class="meta">Spotify</div>
-      <div>${getToken() ? 'Token saved' : 'No token saved'}</div>
-      <button id="clearToken" class="ghost" style="margin-top: 1rem;">Clear Spotify token</button>
+      <div style="margin-bottom: 1rem;">${connected ? 'Connected ✓' : 'Not connected'}</div>
+      ${connected
+        ? `<button id="disconnectSpotify" class="ghost">Disconnect Spotify</button>`
+        : `<button id="connectSpotify">Connect Spotify</button>`}
     </div>
 
     <button id="logout" class="ghost">Sign out</button>
   `;
-  root.querySelector('#clearToken').onclick = () => { clearToken(); renderProfile(root); };
+  const connectBtn = root.querySelector('#connectSpotify');
+  const disconnectBtn = root.querySelector('#disconnectSpotify');
+  if (connectBtn)    connectBtn.onclick    = () => startLogin();
+  if (disconnectBtn) disconnectBtn.onclick = () => { disconnect(); renderProfile(root); };
   root.querySelector('#logout').onclick = () => logout();
 }

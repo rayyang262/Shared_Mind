@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { onAuth, logout } from './firebase.js';
+import { handleCallback } from './spotify.js';
 import {
   renderLogin, renderFeed, renderLog,
   renderMemory, renderDiscovery, renderProfile
@@ -84,6 +85,10 @@ function renderNav() {
 // ============================================================================
 //  [BOOT]  wire up Firebase auth + start the router
 // ============================================================================
+
+// Handle Spotify OAuth callback first (if we landed here with ?code=...)
+handleCallback().catch((e) => console.error('Spotify callback error:', e));
+
 onAuth((user) => {
   currentUser = user;
   authReady = true;
