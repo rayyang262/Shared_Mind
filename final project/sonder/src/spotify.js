@@ -1,28 +1,34 @@
-// Spotify search.
+// ============================================================================
+//  SONDER — SPOTIFY (token + search)
+// ============================================================================
+//  Sections:
+//     [TOKEN]   localStorage helpers (set / get / clear)
+//     [SEARCH]  search Spotify catalog for tracks
+// ============================================================================
 //
-// PROTOTYPE NOTE:
-// Real auth is Authorization Code + PKCE — wire that up later.
-// For now we use a token pasted into localStorage under "spotify_token".
-// Tokens expire ~1 hour, so re-paste when search starts failing.
+//  PROTOTYPE NOTE — token handling:
+//     Real auth is Authorization Code + PKCE (wire up later).
+//     For now: get a token via curl in terminal, paste it in the Log screen.
 //
-// To get a token quickly for testing:
-// 1. Go to developer.spotify.com/console/get-search-item/
-// 2. Click "Get Token", check no scopes needed for search
-// 3. Copy the token
-// 4. In the browser console: localStorage.setItem('spotify_token', 'BQC...')
+//     curl -X POST "https://accounts.spotify.com/api/token" \
+//       -H "Content-Type: application/x-www-form-urlencoded" \
+//       -d "grant_type=client_credentials&client_id=YOUR_ID&client_secret=YOUR_SECRET"
+//
+//     Tokens expire after ~1 hour. Re-paste when search starts failing.
+// ============================================================================
 
-export function setToken(token) {
-  localStorage.setItem('spotify_token', token);
-}
 
-export function getToken() {
-  return localStorage.getItem('spotify_token');
-}
+// ============================================================================
+//  [TOKEN]  localStorage helpers
+// ============================================================================
+export function setToken(token)  { localStorage.setItem('spotify_token', token); }
+export function getToken()       { return localStorage.getItem('spotify_token'); }
+export function clearToken()     { localStorage.removeItem('spotify_token'); }
 
-export function clearToken() {
-  localStorage.removeItem('spotify_token');
-}
 
+// ============================================================================
+//  [SEARCH]  search Spotify catalog for tracks
+// ============================================================================
 export async function searchTracks(query, limit = 8) {
   const token = getToken();
   if (!token) throw new Error('No Spotify token. Paste one in the Log screen.');
@@ -39,12 +45,12 @@ export async function searchTracks(query, limit = 8) {
   if (!res.ok) throw new Error(`Spotify error: ${res.status}`);
 
   const data = await res.json();
-  // Normalize all fields to never be `undefined` — Firestore rejects undefined.
+  // Normalize all fields — Firestore rejects `undefined`, so coerce to null/''/[].
   return data.tracks.items.map((t) => ({
-    spotifyId: t.id ?? null,
-    name: t.name ?? '',
-    artists: t.artists?.map((a) => a.name) ?? [],
-    albumArt: t.album?.images?.[0]?.url ?? null,
+    spotifyId:  t.id ?? null,
+    name:       t.name ?? '',
+    artists:    t.artists?.map((a) => a.name) ?? [],
+    albumArt:   t.album?.images?.[0]?.url ?? null,
     previewUrl: t.preview_url ?? null
   }));
 }

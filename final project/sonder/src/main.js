@@ -1,28 +1,63 @@
-import { onAuth, logout } from './firebase.js';
-import { route, rerender, start } from './router.js';
+// ============================================================================
+//  SONDER — APP ENTRY (router + auth + nav + boot)
+// ============================================================================
+//  Sections:
+//     [ROUTES]      url → screen mapping
+//     [ROUTER]      hash-based router internals
+//     [NAV]         top navigation bar
+//     [BOOT]        wire up Firebase auth + start the router
+// ============================================================================
 
-import { renderLogin } from './screens/login.js';
-import { renderFeed } from './screens/feed.js';
-import { renderLog } from './screens/log.js';
-import { renderMemory } from './screens/memory.js';
-import { renderDiscovery } from './screens/discovery.js';
-import { renderProfile } from './screens/profile.js';
+import { onAuth, logout } from './firebase.js';
+import {
+  renderLogin, renderFeed, renderLog,
+  renderMemory, renderDiscovery, renderProfile
+} from './screens.js';
 
 let currentUser = null;
 let authReady = false;
 
-// --- Routes ---
-route('/', (root) => {
-  if (!authReady) { root.innerHTML = ''; return; } // wait for first auth state
+
+// ============================================================================
+//  [ROUTER]  tiny hash-based router
+// ============================================================================
+const routes = {};
+
+function route(path, handler) { routes[path] = handler; }
+
+export function navigate(path) {
+  if (window.location.hash === `#${path}`) rerender();
+  else window.location.hash = path;
+}
+
+function rerender() {
+  renderNav();
+  const path = window.location.hash.slice(1) || '/';
+  const segs = path.split('/').filter(Boolean);
+  const root = segs.length ? `/${segs[0]}` : '/';
+  const param = segs[1];
+  const handler = routes[root] || routes['/'];
+  handler(document.getElementById('app'), param);
+}
+
+
+// ============================================================================
+//  [ROUTES]  url → screen mapping
+// ============================================================================
+route('/',          (root)        => {
+  if (!authReady) { root.innerHTML = ''; return; }
   if (!currentUser) return renderLogin(root);
   return renderFeed(root);
 });
-route('/log', (root) => currentUser ? renderLog(root) : renderLogin(root));
-route('/memory', (root, id) => currentUser ? renderMemory(root, id) : renderLogin(root));
-route('/discovery', (root) => currentUser ? renderDiscovery(root) : renderLogin(root));
-route('/profile', (root) => currentUser ? renderProfile(root) : renderLogin(root));
+route('/log',       (root)        => currentUser ? renderLog(root)        : renderLogin(root));
+route('/memory',    (root, id)    => currentUser ? renderMemory(root, id) : renderLogin(root));
+route('/discovery', (root)        => currentUser ? renderDiscovery(root)  : renderLogin(root));
+route('/profile',   (root)        => currentUser ? renderProfile(root)    : renderLogin(root));
 
-// --- Nav ---
+
+// ============================================================================
+//  [NAV]  top navigation bar
+// ============================================================================
 function renderNav() {
   const nav = document.getElementById('nav');
   if (!currentUser) {
@@ -45,12 +80,15 @@ function renderNav() {
   };
 }
 
-// --- Boot ---
+
+// ============================================================================
+//  [BOOT]  wire up Firebase auth + start the router
+// ============================================================================
 onAuth((user) => {
   currentUser = user;
   authReady = true;
-  renderNav();
   rerender();
 });
 
-start();
+window.addEventListener('hashchange', rerender);
+rerender();
