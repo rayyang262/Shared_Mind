@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation — Firebase Storage</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="constellation"></canvas>
+    
+    <div id="creation-panel">
+        <input id="username-input" type="text" placeholder="Your name..." />
+        <textarea id="user-input" placeholder="What's on your mind?"></textarea>
+        <div id="nearby-preview"></div>
+        <div id="controls">
+            <button id="generate-btn">Generate Perspectives</button>
+            <button id="save-btn">Save to Firebase</button>
+            <button id="load-btn">Load Similar</button>
+            <button id="clear-btn">Clear</button>
+        </div>
+    </div>
+    
+    <div id="profile-modal" class="hidden">
+        <div class="profile-content">
+            <div class="avatar"></div>
+            <h2 class="username"></h2>
+            <p class="bio"></p>
+            <img id="profile-image" src="" alt="" />
+            <div class="synthetic-badge hidden">SYNTHETIC</div>
+        </div>
+    </div>
+    
+    <div id="status"></div>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

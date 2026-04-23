@@ -1,0 +1,141 @@
+:root {
+    --ink: #0f1117;
+    --gold: #c9a227;
+    --teal: #2d7a6e;
+    --purple: #7c5ce4;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--ink);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+}
+
+#constellation {
+    position: fixed;
+    inset: 0;
+}
+
+#creation-panel {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    background: rgba(15, 17, 23, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(201, 162, 39, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    z-index: 100;
+}
+
+#username-input, #user-input {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(201, 162, 39, 0.2);
+    border-radius: 8px;
+    color: white;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 10px;
+}
+
+#user-input {
+    height: 80px;
+    resize: none;
+}
+
+#controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px;
+    background: rgba(201, 162, 39, 0.2);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+}
+
+button:hover {
+    background: rgba(201, 162, 39, 0.4);
+}
+
+#save-btn {
+    background: rgba(45, 122, 110, 0.2);
+    border-color: var(--teal);
+    color: var(--teal);
+}
+
+#load-btn {
+    background: rgba(124, 92, 228, 0.2);
+    border-color: var(--purple);
+    color: var(--purple);
+}
+
+#profile-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#profile-modal.hidden {
+    display: none;
+}
+
+.profile-content {
+    background: rgba(15, 17, 23, 0.95);
+    border: 1px solid rgba(201, 162, 39, 0.3);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 400px;
+    text-align: center;
+}
+
+#profile-image {
+    max-width: 300px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.synthetic-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    background: rgba(200, 30, 30, 0.2);
+    border: 1px solid rgba(200, 30, 30, 0.4);
+    border-radius: 20px;
+    font-size: 11px;
+    margin-top: 10px;
+}
+
+.synthetic-badge.hidden {
+    display: none;
+}
+
+#status {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(45, 122, 110, 0.9);
+    padding: 12px 20px;
+    border-radius: 6px;
+    display: none;
+    z-index: 500;
+}
